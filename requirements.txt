@@ -1,0 +1,31 @@
+# Core
+alpaca-py>=0.30.0
+aiohttp>=3.9.0
+pydantic>=2.0
+pydantic-settings>=2.0
+redis[hiredis]>=5.0
+
+# Data / pricing
+yfinance>=0.2.30
+numpy>=1.26
+pandas>=2.1
+
+# Sentiment / NLP
+transformers>=4.36
+torch>=2.1
+praw>=7.7
+textblob>=0.18
+feedparser>=6.0
+
+# Options pricing
+py_vollib>=1.0.1
+
+# Database
+aiosqlite>=0.19
+
+# Web dashboard
+aiohttp-jinja2>=1.6
+
+# Testing
+pytest>=7.4
+pytest-asyncio>=0.23

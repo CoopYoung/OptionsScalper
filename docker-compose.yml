@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6389:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  paper:
+    build: .
+    container_name: zero-dte-paper
+    env_file:
+      - .env
+      - .env.paper
+    environment:
+      - TRADING_MODE=paper
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:
