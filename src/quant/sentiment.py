@@ -2,7 +2,7 @@
 
 Sources:
     1. CNN Fear & Greed Index (every 30 min)
-    2. Reddit r/wallstreetbets (every 15 min) — FinBERT NLP
+    2. X/Twitter cashtag sentiment (every 15 min) — FinBERT NLP
     3. Financial news headlines (every 15 min) — FinBERT NLP
 """
 
@@ -31,7 +31,7 @@ class SentimentSignals:
     composite_score: float           # -1.0 (fear) to +1.0 (greed)
     regime: SentimentRegime
     fear_greed_index: int            # 0-100 (CNN)
-    reddit_sentiment: float          # -1 to +1
+    x_sentiment: float               # -1 to +1 (X/Twitter cashtags)
     news_sentiment: float            # -1 to +1
     contrarian_signal: float         # -1 to +1 (fade extremes)
     news_catalyst: bool              # Is there a breaking event?
@@ -50,13 +50,13 @@ class SentimentAggregator:
     async def update(self) -> SentimentSignals:
         """Refresh all sentiment sources and compute composite."""
         fg_index = await self._fetch_fear_greed()
-        reddit_sent = await self._fetch_reddit_sentiment()
+        x_sent = await self._fetch_x_sentiment()
         news_sent = await self._fetch_news_sentiment()
 
         # Composite: weighted average
         composite = (
             self._fg_to_score(fg_index) * 0.40 +
-            reddit_sent * 0.30 +
+            x_sent * 0.30 +
             news_sent * 0.30
         )
 
@@ -81,7 +81,7 @@ class SentimentAggregator:
             composite_score=round(composite, 3),
             regime=regime,
             fear_greed_index=fg_index,
-            reddit_sentiment=round(reddit_sent, 3),
+            x_sentiment=round(x_sent, 3),
             news_sentiment=round(news_sent, 3),
             contrarian_signal=round(contrarian, 3),
             news_catalyst=news_catalyst,
@@ -114,36 +114,55 @@ class SentimentAggregator:
             logger.debug("CNN Fear & Greed fetch failed")
             return 50
 
-    async def _fetch_reddit_sentiment(self) -> float:
-        """Analyze r/wallstreetbets sentiment using FinBERT."""
-        if not self._settings.reddit_client_id:
+    async def _fetch_x_sentiment(self) -> float:
+        """Analyze X/Twitter cashtag sentiment using FinBERT.
+
+        Searches recent tweets mentioning $SPY, $QQQ, $IWM and scores
+        them through the NLP pipeline. Requires X_BEARER_TOKEN.
+        """
+        if not self._settings.x_bearer_token:
             return 0.0
 
         try:
-            import praw
+            import aiohttp
 
-            reddit = praw.Reddit(
-                client_id=self._settings.reddit_client_id,
-                client_secret=self._settings.reddit_client_secret,
-                user_agent=self._settings.reddit_user_agent,
+            # Search for cashtags related to our underlyings
+            cashtags = " OR ".join(
+                f"${sym}" for sym in self._settings.underlying_list
             )
+            query = f"({cashtags}) lang:en -is:retweet"
 
-            subreddit = reddit.subreddit("wallstreetbets")
-            posts = list(subreddit.hot(limit=25))
+            url = "https://api.x.com/2/tweets/search/recent"
+            headers = {
+                "Authorization": f"Bearer {self._settings.x_bearer_token}",
+            }
+            params = {
+                "query": query,
+                "max_results": 50,
+                "tweet.fields": "text",
+            }
 
-            texts = []
-            for post in posts:
-                title = post.title
-                texts.append(title)
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url, headers=headers, params=params,
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as resp:
+                    if resp.status != 200:
+                        logger.debug("X API returned %d", resp.status)
+                        return 0.0
 
-            if not texts:
+                    data = await resp.json()
+
+            tweets = data.get("data", [])
+            if not tweets:
                 return 0.0
 
+            texts = [t["text"] for t in tweets]
             sentiments = self._analyze_texts(texts)
             return sum(sentiments) / len(sentiments) if sentiments else 0.0
 
         except Exception:
-            logger.debug("Reddit sentiment fetch failed")
+            logger.debug("X sentiment fetch failed")
             return 0.0
 
     async def _fetch_news_sentiment(self) -> float:

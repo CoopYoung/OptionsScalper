@@ -116,9 +116,7 @@ class Settings(BaseSettings):
     macro_blackout_minutes: int = 60     # Pause trading ±60 min around FOMC/CPI
 
     # ── Sentiment ───────────────────────────────────────────────
-    reddit_client_id: str = ""
-    reddit_client_secret: str = ""
-    reddit_user_agent: str = "zero-dte-scalper/1.0"
+    x_bearer_token: str = ""             # X/Twitter API v2 Bearer Token
     sentiment_weight: float = 0.05       # Weight in ensemble (0-1)
 
     # ── Technical Indicators ────────────────────────────────────

@@ -26,7 +26,7 @@ src/
 │   ├── vix.py                   # VIX regime (low/normal/high/crisis), IV percentile, RV-IV spread
 │   ├── gex.py                   # Gamma Exposure levels (support/resistance from dealer hedging)
 │   ├── flow.py                  # Put/call ratio, unusual activity, smart money bias
-│   ├── sentiment.py             # CNN F&G + Reddit FinBERT + news headlines
+│   ├── sentiment.py             # CNN F&G + X/Twitter FinBERT + news headlines
 │   ├── macro.py                 # Economic calendar gate (FOMC/CPI/NFP blackouts)
 │   ├── internals.py             # NYSE TICK, A/D ratio, VWAP, cumulative delta
 │   └── optionsai.py             # OptionsAI: IV skew, expected move, AI strategy bias, earnings
