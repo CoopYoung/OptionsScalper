@@ -1,16 +1,18 @@
 """Master 0DTE strategy: multi-factor signal ensemble.
 
-Signal ensemble (weighted scoring):
-    Technical momentum    25%   RSI, MACD, BB
-    Tick momentum + ROC   20%   Price feed
-    GEX regime + levels   15%   quant/gex.py
-    Options flow          15%   quant/flow.py
-    VIX regime + IV pctile 10%  quant/vix.py
+Signal ensemble (weighted scoring, 8 factors):
+    Technical momentum    22%   RSI, MACD, BB
+    Tick momentum + ROC   18%   Price feed
+    GEX regime + levels   13%   quant/gex.py
+    Options flow          14%   quant/flow.py
+    OptionsAI             10%   quant/optionsai.py (IV skew, expected move, AI strategies)
+    VIX regime + IV pctile 8%   quant/vix.py
     Market internals      10%   quant/internals.py
     Sentiment (contrarian) 5%   quant/sentiment.py
 
 Gate checks (must ALL pass):
     1. Not in macro blackout
+    1b. No earnings blackout for underlying
     2. Within entry window (9:45 AM - 2:30 PM ET)
     3. IV percentile < 85
     4. VIX regime not crisis
@@ -31,6 +33,7 @@ from src.quant.flow import FlowAnalyzer
 from src.quant.gex import GEXAnalyzer
 from src.quant.internals import MarketInternals
 from src.quant.macro import MacroCalendar
+from src.quant.optionsai import OptionsAIAnalyzer
 from src.quant.sentiment import SentimentAggregator
 from src.quant.vix import VIXRegimeDetector
 from src.strategy.base import BaseStrategy, TradeDirection, TradeSignal
@@ -52,6 +55,7 @@ class ZeroDTEStrategy(BaseStrategy):
         sentiment: SentimentAggregator,
         macro: MacroCalendar,
         internals: MarketInternals,
+        optionsai: Optional[OptionsAIAnalyzer] = None,
     ) -> None:
         self._settings = settings
         self._chain_mgr = chain_mgr
@@ -61,6 +65,7 @@ class ZeroDTEStrategy(BaseStrategy):
         self._sentiment = sentiment
         self._macro = macro
         self._internals = internals
+        self._optionsai = optionsai
 
     @property
     def name(self) -> str:
@@ -93,6 +98,8 @@ class ZeroDTEStrategy(BaseStrategy):
         internals_score = self._internals.get_score("call")  # Direction TBD
         sentiment_score_call = self._sentiment.get_score("call")
         sentiment_score_put = self._sentiment.get_score("put")
+        oai_score_call = self._optionsai.get_score(underlying, "call") if self._optionsai else 0.0
+        oai_score_put = self._optionsai.get_score(underlying, "put") if self._optionsai else 0.0
 
         # ── Weighted ensemble for CALL direction ───────────────
         w = self._settings
@@ -103,7 +110,8 @@ class ZeroDTEStrategy(BaseStrategy):
             flow_score_call * w.weight_flow +
             vix_score * w.weight_vix +
             internals_score * w.weight_internals +
-            sentiment_score_call * w.weight_sentiment
+            sentiment_score_call * w.weight_sentiment +
+            oai_score_call * w.weight_optionsai
         )
 
         # ── Weighted ensemble for PUT direction ────────────────
@@ -114,7 +122,8 @@ class ZeroDTEStrategy(BaseStrategy):
             flow_score_put * w.weight_flow +
             -vix_score * w.weight_vix +
             -internals_score * w.weight_internals +
-            sentiment_score_put * w.weight_sentiment
+            sentiment_score_put * w.weight_sentiment +
+            oai_score_put * w.weight_optionsai
         )
 
         # Scale to 0-100 confidence
@@ -128,7 +137,7 @@ class ZeroDTEStrategy(BaseStrategy):
             option_type = "call"
             score_breakdown = self._build_breakdown(
                 tech_score, tick_score, gex_score_call, flow_score_call,
-                vix_score, internals_score, sentiment_score_call,
+                vix_score, internals_score, sentiment_score_call, oai_score_call,
             )
         elif put_confidence > call_confidence and put_confidence >= w.signal_confidence_threshold:
             direction = TradeDirection.BUY_PUT
@@ -136,7 +145,7 @@ class ZeroDTEStrategy(BaseStrategy):
             option_type = "put"
             score_breakdown = self._build_breakdown(
                 -tech_score, -tick_score, gex_score_put, flow_score_put,
-                -vix_score, -internals_score, sentiment_score_put,
+                -vix_score, -internals_score, sentiment_score_put, oai_score_put,
             )
         else:
             return self._make_hold(
@@ -163,12 +172,14 @@ class ZeroDTEStrategy(BaseStrategy):
         )
 
         logger.info(
-            "SIGNAL: %s conf=%d tech=%.2f tick=%.2f gex=%.2f flow=%.2f vix=%.2f int=%.2f sent=%.2f",
+            "SIGNAL: %s conf=%d tech=%.2f tick=%.2f gex=%.2f flow=%.2f "
+            "vix=%.2f int=%.2f sent=%.2f oai=%.2f",
             direction.value, confidence, tech_score, tick_score,
             gex_score_call if option_type == "call" else gex_score_put,
             flow_score_call if option_type == "call" else flow_score_put,
             vix_score, internals_score,
             sentiment_score_call if option_type == "call" else sentiment_score_put,
+            oai_score_call if option_type == "call" else oai_score_put,
         )
 
         return TradeSignal(
@@ -190,6 +201,10 @@ class ZeroDTEStrategy(BaseStrategy):
             macro_signals = self._macro.latest
             reason = macro_signals.blackout_reason if macro_signals else "Macro event"
             return f"Macro blackout: {reason}"
+
+        # 1b. Earnings blackout (per-underlying)
+        if self._optionsai and self._optionsai.has_earnings(underlying):
+            return f"Earnings blackout for {underlying}"
 
         # 2. Entry window (ET timezone)
         from zoneinfo import ZoneInfo
@@ -279,7 +294,7 @@ class ZeroDTEStrategy(BaseStrategy):
 
     def _build_breakdown(
         self, tech: float, tick: float, gex: float, flow: float,
-        vix: float, internals: float, sentiment: float,
+        vix: float, internals: float, sentiment: float, optionsai: float = 0.0,
     ) -> dict:
         return {
             "technical": round(tech, 3),
@@ -289,4 +304,5 @@ class ZeroDTEStrategy(BaseStrategy):
             "vix": round(vix, 3),
             "internals": round(internals, 3),
             "sentiment": round(sentiment, 3),
+            "optionsai": round(optionsai, 3),
         }

@@ -150,14 +150,15 @@ class Settings(BaseSettings):
     web_port: int = 8090
     web_enabled: bool = True
 
-    # ── Signal Ensemble Weights ─────────────────────────────────
-    weight_technical: float = 0.25
-    weight_tick_momentum: float = 0.20
-    weight_gex: float = 0.15
-    weight_flow: float = 0.15
-    weight_vix: float = 0.10
+    # ── Signal Ensemble Weights (must sum to 1.0) ───────────────
+    weight_technical: float = 0.22
+    weight_tick_momentum: float = 0.18
+    weight_gex: float = 0.13
+    weight_flow: float = 0.14
+    weight_vix: float = 0.08
     weight_internals: float = 0.10
     weight_sentiment: float = 0.05
+    weight_optionsai: float = 0.10
 
 
 def get_settings() -> Settings:

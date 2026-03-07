@@ -158,6 +158,27 @@ class Dashboard:
                 "cumulative_delta": internals.cumulative_delta,
             }
 
+        # OptionsAI per underlying
+        signals["optionsai"] = {}
+        for sym in self._engine._settings.underlying_list:
+            oai = self._engine._optionsai.get_latest(sym)
+            if oai:
+                signals["optionsai"][sym] = {
+                    "iv_skew": oai.iv_skew,
+                    "move_amount": oai.move_amount,
+                    "move_percent": oai.move_percent,
+                    "implied_high": oai.implied_high,
+                    "implied_low": oai.implied_low,
+                    "call_iv": oai.call_iv,
+                    "put_iv": oai.put_iv,
+                    "strategy_bias": oai.strategy_bias,
+                    "bullish_strategies": oai.bullish_strategies,
+                    "bearish_strategies": oai.bearish_strategies,
+                    "strategy_names": oai.strategy_names,
+                    "price_vs_range": oai.price_vs_implied_range,
+                    "earnings_nearby": self._engine._optionsai.has_earnings(sym),
+                }
+
         # Tick momentum per underlying
         signals["momentum"] = {}
         for sym in self._engine._settings.underlying_list:
@@ -351,6 +372,12 @@ _DASHBOARD_HTML = """<!DOCTYPE html>
     <div class="row"><span class="label">Breadth</span><span class="val" id="breadth">--</span></div>
   </div>
 
+  <!-- OptionsAI -->
+  <div class="card">
+    <h2>OptionsAI Signals</h2>
+    <div id="optionsaiPanel"><span style="color:#8b949e">Waiting...</span></div>
+  </div>
+
   <!-- Positions -->
   <div class="card" style="grid-column: span 2">
     <h2>Open Positions</h2>
@@ -480,6 +507,21 @@ setInterval(async () => {
     }
     if (sig.internals) {
       $('breadth').textContent = sig.internals.breadth_score.toFixed(2) + ' (TICK: ' + sig.internals.nyse_tick + ')';
+    }
+    if (sig.optionsai) {
+      let oaiHtml = '';
+      for (const [sym, oai] of Object.entries(sig.optionsai)) {
+        const skewCls = oai.iv_skew > 0.005 ? 'green' : oai.iv_skew < -0.005 ? 'red' : '';
+        const biasCls = oai.strategy_bias > 0.1 ? 'green' : oai.strategy_bias < -0.1 ? 'red' : '';
+        oaiHtml += '<div style="margin-bottom:8px"><strong class="blue">' + sym + '</strong>';
+        oaiHtml += '<div class="row"><span class="label">IV Skew</span><span class="val ' + skewCls + '">' + oai.iv_skew.toFixed(4) + '</span></div>';
+        oaiHtml += '<div class="row"><span class="label">Expected Move</span><span class="val">$' + oai.move_amount.toFixed(2) + ' (' + oai.move_percent.toFixed(2) + '%)</span></div>';
+        oaiHtml += '<div class="row"><span class="label">Implied Range</span><span class="val">' + oai.implied_low.toFixed(2) + ' - ' + oai.implied_high.toFixed(2) + '</span></div>';
+        oaiHtml += '<div class="row"><span class="label">AI Bias</span><span class="val ' + biasCls + '">' + oai.strategy_bias.toFixed(2) + ' (' + oai.bullish_strategies + 'B/' + oai.bearish_strategies + 'S)</span></div>';
+        if (oai.earnings_nearby) oaiHtml += '<div class="row"><span class="label">Earnings</span><span class="val red">NEARBY</span></div>';
+        oaiHtml += '</div>';
+      }
+      $('optionsaiPanel').innerHTML = oaiHtml || '<span style="color:#8b949e">Waiting...</span>';
     }
   } catch(e) {}
 }, 10000);

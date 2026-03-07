@@ -1,6 +1,6 @@
 # CLAUDE.md — Zero-DTE Options Scalper
 
-You are an expert quantitative trading engineer building a production-grade 0DTE (zero days to expiration) options scalping bot. The bot trades **SPY/QQQ/IWM** options on **Alpaca**, using a 7-factor weighted signal ensemble with quant-level analysis (VIX regime, GEX, options flow, sentiment, macro calendar, market internals).
+You are an expert quantitative trading engineer building a production-grade 0DTE (zero days to expiration) options scalping bot. The bot trades **SPY/QQQ/IWM** options on **Alpaca**, using an 8-factor weighted signal ensemble with quant-level analysis (VIX regime, GEX, options flow, OptionsAI, sentiment, macro calendar, market internals).
 
 ## Project Overview
 
@@ -28,11 +28,12 @@ src/
 │   ├── flow.py                  # Put/call ratio, unusual activity, smart money bias
 │   ├── sentiment.py             # CNN F&G + Reddit FinBERT + news headlines
 │   ├── macro.py                 # Economic calendar gate (FOMC/CPI/NFP blackouts)
-│   └── internals.py             # NYSE TICK, A/D ratio, VWAP, cumulative delta
+│   ├── internals.py             # NYSE TICK, A/D ratio, VWAP, cumulative delta
+│   └── optionsai.py             # OptionsAI: IV skew, expected move, AI strategy bias, earnings
 ├── strategy/
 │   ├── base.py                  # TradeDirection, OptionsContract, TradeSignal
 │   ├── signals.py               # RSI, MACD, Bollinger, Volume Delta
-│   └── zero_dte.py              # Master ensemble: 7 factors + gate checks → signal
+│   └── zero_dte.py              # Master ensemble: 8 factors + gate checks → signal
 ├── risk/
 │   ├── manager.py               # Kelly sizing, Greeks limits, PDT tracker, exit logic
 │   └── circuit_breaker.py       # Drawdown halt, consecutive loss cooldown
@@ -40,29 +41,31 @@ src/
 │   ├── config.py                # Pydantic Settings (.env → .env.{mode} → env vars)
 │   ├── logger.py                # JSON structured logging
 │   └── alerts.py                # Telegram notifications
-└── web/                         # Dashboard (not yet implemented)
+└── web/
+    └── app.py                   # Aiohttp dashboard: SSE, API, dark-themed HTML
 ```
 
 ## Signal Ensemble
 
-The strategy computes a weighted confidence score (0-100) from 7 factors:
+The strategy computes a weighted confidence score (0-100) from 8 factors:
 
 | Factor                 | Weight | Source                  |
 |------------------------|--------|-------------------------|
-| Technical momentum     | 25%    | RSI, MACD, BB           |
-| Tick momentum + ROC    | 20%    | Price feed ticks        |
-| GEX regime + levels    | 15%    | `quant/gex.py`          |
-| Options flow           | 15%    | `quant/flow.py`         |
-| VIX regime + IV pctile | 10%    | `quant/vix.py`          |
+| Technical momentum     | 22%    | RSI, MACD, BB           |
+| Tick momentum + ROC    | 18%    | Price feed ticks        |
+| GEX regime + levels    | 13%    | `quant/gex.py`          |
+| Options flow           | 14%    | `quant/flow.py`         |
+| OptionsAI              | 10%    | `quant/optionsai.py`    |
+| VIX regime + IV pctile | 8%     | `quant/vix.py`          |
 | Market internals       | 10%    | `quant/internals.py`    |
 | Sentiment (contrarian) | 5%     | `quant/sentiment.py`    |
 
-Gate checks (all must pass): macro blackout, time window, IV percentile, VIX crisis, spread quality, Greeks room, PDT budget.
+Gate checks (all must pass): macro blackout, earnings blackout (per-underlying), time window, IV percentile, VIX crisis, spread quality, Greeks room, PDT budget.
 
 ## Engine Loops
 
 - **Fast loop (5s)**: Check exits (profit target/stop loss/trailing/time), poll option quotes, publish tick momentum to Redis
-- **Quant loop (30s)**: Refresh VIX, GEX, flow, internals, macro. Sentiment every ~2 min (FinBERT is slow)
+- **Quant loop (30s)**: Refresh VIX, GEX, flow, internals, macro, OptionsAI. Sentiment every ~2 min (FinBERT is slow)
 - **Strategy loop (15s)**: For each underlying, compute technicals + ensemble → generate TradeSignal → risk check → place order
 - **Chain refresh (5m)**: Re-fetch options chains + snapshots from Alpaca
 
@@ -100,9 +103,10 @@ SIGNAL_CONFIDENCE_THRESHOLD=55
 KELLY_FRACTION=0.20, MAX_POSITION_PCT=0.05, DAILY_DRAWDOWN_HALT=0.08
 MAX_PORTFOLIO_DELTA=50.0, MAX_PORTFOLIO_GAMMA=20.0
 
-# Ensemble Weights
-WEIGHT_TECHNICAL=0.25, WEIGHT_TICK_MOMENTUM=0.20, WEIGHT_GEX=0.15
-WEIGHT_FLOW=0.15, WEIGHT_VIX=0.10, WEIGHT_INTERNALS=0.10, WEIGHT_SENTIMENT=0.05
+# Ensemble Weights (8 factors, sum to 1.0)
+WEIGHT_TECHNICAL=0.22, WEIGHT_TICK_MOMENTUM=0.18, WEIGHT_GEX=0.13
+WEIGHT_FLOW=0.14, WEIGHT_OPTIONSAI=0.10, WEIGHT_VIX=0.08
+WEIGHT_INTERNALS=0.10, WEIGHT_SENTIMENT=0.05
 ```
 
 ## Running
@@ -118,13 +122,11 @@ python -m src.core
 
 ## What Needs Work
 
-1. **Tests** — Empty test suite. Needs unit tests for: signal scoring, Kelly sizing, Greeks limits, PDT tracker, gate checks, strike selection
-2. **Web dashboard** — `src/web/` is a placeholder. Needs: prices, options chain, quant signals panel, positions, risk gauges, activity log
-3. **Paper trading validation** — Run 4+ weeks on paper, track win rate, Sharpe, max drawdown, gate effectiveness
-4. **Backtesting** — Historical 0DTE data replay with slippage model
-5. **Order management** — Cancel-replace flow for unfilled orders (no IOC on Alpaca)
-6. **Quant data sources** — Squeezemetrics API integration for real GEX data, Intrinio for unusual flow
-7. **Signal tuning** — Validate ensemble weights through backtesting, adjust for real market conditions
+1. **Paper trading validation** — Run 4+ weeks on paper, track win rate, Sharpe, max drawdown, gate effectiveness
+2. **Backtesting** — Historical 0DTE data replay with slippage model
+3. **Order management** — Cancel-replace flow for unfilled orders (no IOC on Alpaca)
+4. **Quant data sources** — Squeezemetrics API integration for real GEX data, Intrinio for unusual flow
+5. **Signal tuning** — Validate ensemble weights through backtesting, adjust for real market conditions
 
 ## When Making Changes
 
