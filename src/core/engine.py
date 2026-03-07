@@ -115,6 +115,12 @@ class TradingEngine:
         # Register stream callbacks
         self._stream.on_trade(self._on_underlying_trade)
 
+        # Start web dashboard
+        if self._settings.web_enabled:
+            from src.web.app import Dashboard
+            self._dashboard = Dashboard(self, port=self._settings.web_port)
+            await self._dashboard.start()
+
         # Start all loops
         self._running = True
         logger.info("Starting trading loops...")
