@@ -91,14 +91,14 @@ class VIXRegimeDetector:
             size_multiplier = self._get_size_multiplier(current_vix, regime)
 
             # Should we trade?
+            # Only hard-block on VIX crisis. High IV percentile is a soft
+            # signal (reduces size via multiplier) — blocking at 85% meant
+            # the bot sat idle for weeks during any elevated-VIX period.
             should_trade = True
             block_reason = ""
             if regime == VIXRegime.CRISIS:
                 should_trade = False
                 block_reason = f"VIX crisis ({current_vix:.1f} > {self._settings.vix_crisis_threshold})"
-            elif iv_percentile > self._settings.iv_percentile_max:
-                should_trade = False
-                block_reason = f"IV percentile too high ({iv_percentile:.0f}% > {self._settings.iv_percentile_max}%)"
 
             self._last_vix = current_vix
             self._vix_history = closes
@@ -139,7 +139,8 @@ class VIXRegimeDetector:
         if regime == VIXRegime.CRISIS:
             return 0.0
         if regime == VIXRegime.HIGH_VOL:
-            return 0.5
+            # Scale down linearly: VIX 25→0.7, VIX 35→0.3
+            return max(0.3, 1.0 - (vix - 25) * 0.07)
         if regime == VIXRegime.LOW_VOL:
             return 1.3
         return 1.0
