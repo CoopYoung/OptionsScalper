@@ -26,6 +26,7 @@ from src.quant.flow import FlowAnalyzer
 from src.quant.gex import GEXAnalyzer
 from src.quant.internals import MarketInternals
 from src.quant.macro import MacroCalendar
+from src.quant.optionsai import OptionsAIAnalyzer
 from src.quant.sentiment import SentimentAggregator
 from src.quant.vix import VIXRegimeDetector
 from src.risk.circuit_breaker import CircuitBreaker
@@ -62,12 +63,14 @@ class TradingEngine:
         self._sentiment = SentimentAggregator(settings)
         self._macro = MacroCalendar(settings)
         self._internals = MarketInternals(settings)
+        self._optionsai = OptionsAIAnalyzer(settings)
 
         # ── Strategy ───────────────────────────────────────────
         self._strategy = ZeroDTEStrategy(
             settings, self._chain_mgr,
             self._vix, self._gex, self._flow,
             self._sentiment, self._macro, self._internals,
+            self._optionsai,
         )
 
         # ── State ──────────────────────────────────────────────
@@ -144,6 +147,7 @@ class TradingEngine:
         # Persist state
         self._persist_state()
 
+        await self._optionsai.close()
         await self._stream.stop()
         await self._cache.close()
         self._db.close()
@@ -168,6 +172,14 @@ class TradingEngine:
         # Initial VIX check
         vix_signals = await self._vix.update()
         logger.info("VIX regime: %s (%.1f)", vix_signals.regime.value, vix_signals.vix_level)
+
+        # Load OptionsAI earnings calendar
+        earnings = await self._optionsai.load_earnings()
+        if earnings:
+            logger.warning(
+                "EARNINGS TODAY: %s",
+                [f"{e.symbol} ({e.time})" for e in earnings],
+            )
 
         # Load options chains
         for underlying in self._settings.underlying_list:
@@ -336,6 +348,7 @@ class TradingEngine:
                     self._internals.update(),
                     self._update_gex(),
                     self._flow.update(),
+                    self._update_optionsai(),
                     return_exceptions=True,
                 )
 
@@ -362,6 +375,12 @@ class TradingEngine:
             price = self._last_prices.get(underlying, Decimal("0"))
             await self._gex.update(underlying, chain, float(price))
 
+    async def _update_optionsai(self) -> None:
+        """Update OptionsAI signals for all underlyings."""
+        for underlying in self._settings.underlying_list:
+            price = self._last_prices.get(underlying, Decimal("0"))
+            await self._optionsai.update(underlying, float(price))
+
     async def _cache_quant_signals(self) -> None:
         """Cache quant signals in Redis for dashboard."""
         vix = self._vix.latest
@@ -380,6 +399,17 @@ class TradingEngine:
                 "reason": macro.blackout_reason,
                 "minutes_to_event": macro.minutes_to_event,
             })
+
+        for sym in self._settings.underlying_list:
+            oai = self._optionsai.get_latest(sym)
+            if oai:
+                await self._cache.set_quant_signal(f"optionsai_{sym}", {
+                    "iv_skew": oai.iv_skew,
+                    "move_amount": oai.move_amount,
+                    "strategy_bias": oai.strategy_bias,
+                    "implied_high": oai.implied_high,
+                    "implied_low": oai.implied_low,
+                })
 
     # ── Strategy Loop (15s): Entry Evaluation ─────────────────
 
@@ -654,4 +684,12 @@ class TradingEngine:
                 "regime": self._vix.latest.regime.value if self._vix.latest else None,
             },
             "macro_blackout": self._macro.is_blackout(),
+            "optionsai": {
+                sym: {
+                    "iv_skew": oai.iv_skew,
+                    "move_amount": oai.move_amount,
+                    "strategy_bias": oai.strategy_bias,
+                } if (oai := self._optionsai.get_latest(sym)) else None
+                for sym in self._settings.underlying_list
+            },
         }

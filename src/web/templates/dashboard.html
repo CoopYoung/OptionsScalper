@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zero-DTE Options Scalper</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-card: #1c2128;
+            --bg-hover: #252c35;
+            --border: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            --green: #3fb950;
+            --green-bg: rgba(63,185,80,0.12);
+            --red: #f85149;
+            --red-bg: rgba(248,81,73,0.12);
+            --yellow: #d29922;
+            --yellow-bg: rgba(210,153,34,0.12);
+            --blue: #58a6ff;
+            --blue-bg: rgba(88,166,255,0.12);
+            --purple: #bc8cff;
+            --orange: #f0883e;
+            --cyan: #39d2c0;
+            --font: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+            --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            --radius: 8px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* ── Header ─────────────────────────────────── */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .header-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+        }
+        .header-title span { color: var(--blue); }
+        .mode-badge {
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .mode-paper { background: var(--yellow-bg); color: var(--yellow); border: 1px solid rgba(210,153,34,0.3); }
+        .mode-live { background: var(--red-bg); color: var(--red); border: 1px solid rgba(248,81,73,0.3); }
+        .header-right { display: flex; align-items: center; gap: 16px; }
+        .connection-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--text-muted);
+            display: inline-block;
+        }
+        .connection-dot.connected { background: var(--green); box-shadow: 0 0 6px rgba(63,185,80,0.5); }
+        .clock { color: var(--text-secondary); font-size: 12px; }
+
+        /* ── Layout ─────────────────────────────────── */
+        .main { padding: 16px 24px; }
+        .grid { display: grid; gap: 16px; }
+        .grid-top { grid-template-columns: repeat(4, 1fr); }
+        .grid-middle { grid-template-columns: 1fr 1fr; margin-top: 16px; }
+        .grid-bottom { grid-template-columns: 1fr; margin-top: 16px; }
+        .grid-quant { grid-template-columns: repeat(3, 1fr); margin-top: 16px; }
+
+        /* ── Cards ──────────────────────────────────── */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+        .card-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-secondary);
+        }
+        .card-badge {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        .card-body { padding: 16px; }
+
+        /* ── Account Stat Cards ─────────────────────── */
+        .stat-card .card-body { padding: 16px 20px; }
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .stat-change {
+            font-size: 12px;
+            margin-top: 6px;
+        }
+
+        /* ── Price Ticker ───────────────────────────── */
+        .price-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s;
+        }
+        .price-row:last-child { border-bottom: none; }
+        .price-row:hover { background: var(--bg-hover); }
+        .price-symbol {
+            font-weight: 700;
+            font-size: 15px;
+            width: 60px;
+        }
+        .price-value {
+            font-size: 18px;
+            font-weight: 600;
+            width: 100px;
+            text-align: right;
+        }
+        .price-change {
+            font-size: 13px;
+            font-weight: 500;
+            width: 80px;
+            text-align: right;
+        }
+        .price-detail {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-align: right;
+        }
+        .price-detail span { margin-left: 12px; }
+
+        /* ── Tables ─────────────────────────────────── */
+        .table-wrap { overflow-x: auto; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        th {
+            text-align: left;
+            padding: 8px 12px;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-secondary);
+            position: sticky;
+            top: 0;
+        }
+        td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        tr:hover td { background: var(--bg-hover); }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+
+        /* ── Quant Panels ───────────────────────────── */
+        .quant-metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(48,54,61,0.5);
+        }
+        .quant-metric:last-child { border-bottom: none; }
+        .quant-metric-label { color: var(--text-secondary); font-size: 12px; }
+        .quant-metric-value { font-weight: 600; font-size: 13px; }
+
+        /* ── Gauge Bars ─────────────────────────────── */
+        .gauge {
+            margin: 10px 0;
+        }
+        .gauge-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        .gauge-label { font-size: 11px; color: var(--text-secondary); }
+        .gauge-value { font-size: 11px; font-weight: 600; }
+        .gauge-bar {
+            height: 6px;
+            background: var(--bg-secondary);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+        .gauge-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+        .gauge-center-bar {
+            height: 6px;
+            background: var(--bg-secondary);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+        .gauge-center-fill {
+            height: 100%;
+            position: absolute;
+            border-radius: 3px;
+            transition: all 0.5s ease;
+        }
+
+        /* ── Status Colors ──────────────────────────── */
+        .text-green { color: var(--green); }
+        .text-red { color: var(--red); }
+        .text-yellow { color: var(--yellow); }
+        .text-blue { color: var(--blue); }
+        .text-purple { color: var(--purple); }
+        .text-orange { color: var(--orange); }
+        .text-cyan { color: var(--cyan); }
+        .text-muted { color: var(--text-muted); }
+        .bg-green { background: var(--green); }
+        .bg-red { background: var(--red); }
+        .bg-yellow { background: var(--yellow); }
+        .bg-blue { background: var(--blue); }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-green { background: var(--green-bg); color: var(--green); }
+        .badge-red { background: var(--red-bg); color: var(--red); }
+        .badge-yellow { background: var(--yellow-bg); color: var(--yellow); }
+        .badge-blue { background: var(--blue-bg); color: var(--blue); }
+
+        /* ── Options Chain Tabs ─────────────────────── */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+        }
+        .tab {
+            padding: 8px 20px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s;
+        }
+        .tab:hover { color: var(--text-primary); }
+        .tab.active {
+            color: var(--blue);
+            border-bottom-color: var(--blue);
+        }
+
+        /* ── Circuit Breaker Banner ─────────────────── */
+        .circuit-banner {
+            background: var(--red-bg);
+            border: 1px solid rgba(248,81,73,0.3);
+            border-radius: var(--radius);
+            padding: 12px 20px;
+            margin-bottom: 16px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+        }
+        .circuit-banner.active { display: flex; }
+        .circuit-icon { font-size: 20px; }
+        .circuit-text { font-size: 13px; color: var(--red); font-weight: 500; }
+
+        /* ── Refresh Indicator ──────────────────────── */
+        .refresh-bar {
+            height: 2px;
+            background: var(--bg-secondary);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 200;
+        }
+        .refresh-bar-fill {
+            height: 100%;
+            background: var(--blue);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .refresh-bar.loading .refresh-bar-fill {
+            width: 100%;
+            transition: width 1s;
+        }
+
+        /* ── Ensemble Weights Chart ─────────────────── */
+        .weight-bar-row {
+            display: flex;
+            align-items: center;
+            margin: 6px 0;
+            gap: 8px;
+        }
+        .weight-label {
+            width: 100px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-align: right;
+        }
+        .weight-bar-track {
+            flex: 1;
+            height: 16px;
+            background: var(--bg-secondary);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .weight-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            padding-left: 6px;
+            font-size: 10px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.9);
+        }
+
+        /* ── Scrollable sections ────────────────────── */
+        .scroll-y {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .scroll-y::-webkit-scrollbar { width: 6px; }
+        .scroll-y::-webkit-scrollbar-track { background: transparent; }
+        .scroll-y::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        /* ── Empty state ────────────────────────────── */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+        .empty-state-icon { font-size: 32px; margin-bottom: 8px; }
+
+        /* ── Responsive ─────────────────────────────── */
+        @media (max-width: 1200px) {
+            .grid-top { grid-template-columns: repeat(2, 1fr); }
+            .grid-quant { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 768px) {
+            .grid-top, .grid-middle, .grid-quant { grid-template-columns: 1fr; }
+            .main { padding: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Refresh Bar -->
+    <div class="refresh-bar" id="refreshBar">
+        <div class="refresh-bar-fill"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <div class="header-title">
+                <span>0DTE</span> Options Scalper
+            </div>
+            <span class="mode-badge mode-{{ trading_mode }}">{{ trading_mode }}</span>
+        </div>
+        <div class="header-right">
+            <span class="connection-dot" id="connDot"></span>
+            <span class="clock" id="clock"></span>
+        </div>
+    </header>
+
+    <main class="main">
+        <!-- Circuit Breaker Banner -->
+        <div class="circuit-banner" id="circuitBanner">
+            <span class="circuit-icon">&#x26A0;</span>
+            <span class="circuit-text" id="circuitText">Circuit breaker active</span>
+        </div>
+
+        <!-- ── Row 1: Account Stats ────────────────── -->
+        <div class="grid grid-top">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="stat-label">Portfolio Value</div>
+                    <div class="stat-value" id="statEquity">—</div>
+                    <div class="stat-change" id="statDailyPnl">—</div>
+                </div>
+            </div>
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="stat-label">Buying Power</div>
+                    <div class="stat-value" id="statBuyingPower">—</div>
+                    <div class="stat-change text-muted" id="statCash">—</div>
+                </div>
+            </div>
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="stat-label">Day Trades (5d)</div>
+                    <div class="stat-value" id="statDayTrades">—</div>
+                    <div class="stat-change" id="statPDT">—</div>
+                </div>
+            </div>
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="stat-label">Account Status</div>
+                    <div class="stat-value" id="statStatus">—</div>
+                    <div class="stat-change text-muted" id="statUpdated">—</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Row 2: Prices + Positions ───────────── -->
+        <div class="grid grid-middle">
+            <!-- Prices -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Underlying Prices</span>
+                    <span class="card-badge badge-blue" id="priceAge">—</span>
+                </div>
+                <div id="pricesContainer">
+                    <div class="empty-state"><div class="empty-state-icon">&#x1F4CA;</div>Loading prices...</div>
+                </div>
+            </div>
+            <!-- Open Positions -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Open Positions</span>
+                    <span class="card-badge badge-blue" id="posCount">0</span>
+                </div>
+                <div class="table-wrap scroll-y" id="positionsContainer">
+                    <div class="empty-state"><div class="empty-state-icon">&#x1F4CB;</div>No open positions</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Row 3: Quant Signals ────────────────── -->
+        <div class="grid grid-quant">
+            <!-- VIX Panel -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">VIX / Volatility</span>
+                    <span class="card-badge" id="vixRegimeBadge">—</span>
+                </div>
+                <div class="card-body" id="vixPanel">
+                    <div class="empty-state">Loading VIX data...</div>
+                </div>
+            </div>
+            <!-- Risk Gauges -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Risk Gauges</span>
+                </div>
+                <div class="card-body" id="riskPanel">
+                    <div class="gauge">
+                        <div class="gauge-header">
+                            <span class="gauge-label">Portfolio Delta</span>
+                            <span class="gauge-value" id="gaugeDelta">0 / &#177;50</span>
+                        </div>
+                        <div class="gauge-center-bar">
+                            <div class="gauge-center-fill bg-blue" id="gaugeDeltaFill" style="left:50%;width:0%"></div>
+                        </div>
+                    </div>
+                    <div class="gauge">
+                        <div class="gauge-header">
+                            <span class="gauge-label">Portfolio Gamma</span>
+                            <span class="gauge-value" id="gaugeGamma">0 / &#177;20</span>
+                        </div>
+                        <div class="gauge-bar">
+                            <div class="gauge-fill bg-purple" id="gaugeGammaFill" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <div class="gauge">
+                        <div class="gauge-header">
+                            <span class="gauge-label">Portfolio Theta</span>
+                            <span class="gauge-value" id="gaugeTheta">0 / -100</span>
+                        </div>
+                        <div class="gauge-bar">
+                            <div class="gauge-fill bg-orange" id="gaugeThetaFill" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <div class="gauge">
+                        <div class="gauge-header">
+                            <span class="gauge-label">Portfolio Vega</span>
+                            <span class="gauge-value" id="gaugeVega">0 / &#177;30</span>
+                        </div>
+                        <div class="gauge-bar">
+                            <div class="gauge-fill bg-cyan" id="gaugeVegaFill" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <div class="gauge">
+                        <div class="gauge-header">
+                            <span class="gauge-label">Daily Drawdown</span>
+                            <span class="gauge-value" id="gaugeDrawdown">0% / 8%</span>
+                        </div>
+                        <div class="gauge-bar">
+                            <div class="gauge-fill bg-red" id="gaugeDrawdownFill" style="width:0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Ensemble Weights -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Signal Ensemble</span>
+                    <span class="card-badge badge-blue" id="ensembleThreshold">Min: 55</span>
+                </div>
+                <div class="card-body" id="ensemblePanel">
+                    <div class="empty-state">Loading config...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Row 4: Options Chain ────────────────── -->
+        <div class="grid grid-bottom">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">0DTE Options Chain</span>
+                    <div id="chainTabs" class="tabs" style="border-bottom:none;">
+                        {% for sym in underlyings %}
+                        <div class="tab {% if loop.first %}active{% endif %}" data-sym="{{ sym }}" onclick="selectChain('{{ sym }}', this)">{{ sym }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="table-wrap scroll-y" style="max-height:500px;" id="chainContainer">
+                    <div class="empty-state"><div class="empty-state-icon">&#x1F4DC;</div>Loading options chain...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Row 5: Orders ───────────────────────── -->
+        <div class="grid grid-bottom">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Recent Orders</span>
+                    <span class="card-badge badge-blue" id="orderCount">0</span>
+                </div>
+                <div class="table-wrap scroll-y" id="ordersContainer">
+                    <div class="empty-state"><div class="empty-state-icon">&#x1F4DD;</div>No recent orders</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Row 6: Trade History ────────────────── -->
+        <div class="grid grid-bottom">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Trade History</span>
+                    <span class="card-badge badge-blue" id="tradeCount">0</span>
+                </div>
+                <div class="table-wrap scroll-y" id="tradesContainer">
+                    <div class="empty-state"><div class="empty-state-icon">&#x1F4C8;</div>No trade history yet</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    // ── State ──────────────────────────────────────────────
+    let currentChain = '{{ underlyings[0] if underlyings else "SPY" }}';
+    let connected = false;
+    let config = {};
+
+    // ── Helpers ────────────────────────────────────────────
+    function $(id) { return document.getElementById(id); }
+    function fmt(n, decimals=2) {
+        if (n === null || n === undefined || n === '' || n === '—') return '—';
+        const v = parseFloat(n);
+        if (isNaN(v)) return '—';
+        return v.toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+    }
+    function fmtMoney(n) {
+        if (n === null || n === undefined || n === '') return '—';
+        const v = parseFloat(n);
+        if (isNaN(v)) return '—';
+        return '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+    function pnlClass(n) {
+        const v = parseFloat(n);
+        if (isNaN(v) || v === 0) return '';
+        return v > 0 ? 'text-green' : 'text-red';
+    }
+    function pnlSign(n) {
+        const v = parseFloat(n);
+        if (isNaN(v)) return '—';
+        return (v >= 0 ? '+' : '') + fmtMoney(v);
+    }
+
+    // ── Clock ──────────────────────────────────────────────
+    function updateClock() {
+        const now = new Date();
+        const et = now.toLocaleString('en-US', {
+            timeZone: 'America/New_York',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hour12: false
+        });
+        $('clock').textContent = et + ' ET';
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // ── API Fetcher ────────────────────────────────────────
+    async function api(endpoint) {
+        try {
+            const resp = await fetch('/api/' + endpoint);
+            if (!resp.ok) throw new Error(resp.statusText);
+            const data = await resp.json();
+            if (!connected) {
+                connected = true;
+                $('connDot').classList.add('connected');
+            }
+            return data;
+        } catch (e) {
+            console.error('API error:', endpoint, e);
+            connected = false;
+            $('connDot').classList.remove('connected');
+            return null;
+        }
+    }
+
+    // ── Render: Account ────────────────────────────────────
+    async function refreshAccount() {
+        const d = await api('account');
+        if (!d) return;
+        $('statEquity').textContent = fmtMoney(d.equity);
+        const pnl = parseFloat(d.daily_pnl || 0);
+        const pnlPct = parseFloat(d.daily_pnl_pct || 0);
+        $('statDailyPnl').textContent = `${pnlSign(pnl)} (${pnlPct >= 0 ? '+' : ''}${fmt(pnlPct)}%)`;
+        $('statDailyPnl').className = 'stat-change ' + pnlClass(pnl);
+        $('statBuyingPower').textContent = fmtMoney(d.buying_power);
+        $('statCash').textContent = 'Cash: ' + fmtMoney(d.cash);
+        $('statDayTrades').textContent = d.daytrade_count || '0';
+        $('statPDT').textContent = d.pattern_day_trader ? 'PDT Flagged' : 'Not PDT';
+        $('statPDT').className = 'stat-change ' + (d.pattern_day_trader ? 'text-red' : 'text-green');
+        $('statStatus').textContent = d.status || '—';
+        $('statStatus').className = 'stat-value ' + (d.status === 'ACTIVE' ? 'text-green' : 'text-yellow');
+        $('statUpdated').textContent = 'Last refresh: ' + new Date().toLocaleTimeString();
+    }
+
+    // ── Render: Prices ─────────────────────────────────────
+    async function refreshPrices() {
+        const d = await api('prices');
+        if (!d) return;
+        const symbols = Object.keys(d);
+        if (!symbols.length) {
+            $('pricesContainer').innerHTML = '<div class="empty-state">No price data available</div>';
+            return;
+        }
+        let html = '';
+        for (const sym of symbols) {
+            const p = d[sym];
+            const chg = parseFloat(p.change);
+            const cls = pnlClass(chg);
+            html += `
+            <div class="price-row">
+                <span class="price-symbol">${sym}</span>
+                <span class="price-value">${p.price}</span>
+                <span class="price-change ${cls}">${p.change} (${p.change_pct}%)</span>
+                <span class="price-detail">
+                    <span>B: ${p.bid}</span>
+                    <span>A: ${p.ask}</span>
+                    <span>Vol: ${p.volume}</span>
+                </span>
+            </div>`;
+        }
+        $('pricesContainer').innerHTML = html;
+        $('priceAge').textContent = 'Live';
+    }
+
+    // ── Render: Positions ──────────────────────────────────
+    async function refreshPositions() {
+        const d = await api('positions');
+        if (!d || !d.length) {
+            $('positionsContainer').innerHTML = '<div class="empty-state"><div class="empty-state-icon">&#x1F4CB;</div>No open positions</div>';
+            $('posCount').textContent = '0';
+            return;
+        }
+        $('posCount').textContent = d.length;
+        let html = '<table><thead><tr><th>Symbol</th><th class="text-right">Qty</th><th class="text-right">Entry</th><th class="text-right">Current</th><th class="text-right">P&L</th><th class="text-right">Value</th></tr></thead><tbody>';
+        for (const p of d) {
+            const pl = parseFloat(p.unrealized_pl);
+            html += `<tr>
+                <td>${p.symbol}</td>
+                <td class="text-right">${p.qty}</td>
+                <td class="text-right">${fmtMoney(p.avg_entry_price)}</td>
+                <td class="text-right">${fmtMoney(p.current_price)}</td>
+                <td class="text-right ${pnlClass(pl)}">${pnlSign(pl)}</td>
+                <td class="text-right">${fmtMoney(p.market_value)}</td>
+            </tr>`;
+        }
+        html += '</tbody></table>';
+        $('positionsContainer').innerHTML = html;
+    }
+
+    // ── Render: VIX ────────────────────────────────────────
+    async function refreshVIX() {
+        const d = await api('vix');
+        if (!d || !d.level) return;
+        const regimeColors = {
+            'LOW_VOL': 'badge-green', 'NORMAL': 'badge-blue',
+            'HIGH_VOL': 'badge-yellow', 'CRISIS': 'badge-red'
+        };
+        const badge = $('vixRegimeBadge');
+        badge.textContent = d.regime;
+        badge.className = 'card-badge ' + (regimeColors[d.regime] || 'badge-blue');
+
+        $('vixPanel').innerHTML = `
+            <div style="text-align:center;margin-bottom:16px;">
+                <div style="font-size:36px;font-weight:700;">${fmt(d.level)}</div>
+                <div style="font-size:12px;color:var(--text-secondary);">CBOE VIX Index</div>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">IV Percentile</span>
+                <span class="quant-metric-value">${fmt(d.iv_percentile, 1)}%</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">IV Rank</span>
+                <span class="quant-metric-value">${fmt(d.iv_rank, 1)}%</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">VIX 1d Change</span>
+                <span class="quant-metric-value ${pnlClass(-d.roc)}">${d.roc >= 0 ? '+' : ''}${fmt(d.roc)}%</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">RV-IV Spread</span>
+                <span class="quant-metric-value ${d.rv_iv_spread > 0 ? 'text-green' : 'text-red'}">${fmt(d.rv_iv_spread)}</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">52w Range</span>
+                <span class="quant-metric-value">${fmt(d.low_52w)} — ${fmt(d.high_52w)}</span>
+            </div>
+        `;
+    }
+
+    // ── Render: Ensemble ───────────────────────────────────
+    async function refreshConfig() {
+        const d = await api('config');
+        if (!d) return;
+        config = d;
+        $('ensembleThreshold').textContent = 'Min: ' + d.signal_confidence_threshold;
+        const w = d.weights;
+        const colors = {
+            technical: 'var(--blue)', tick_momentum: 'var(--cyan)',
+            gex: 'var(--purple)', flow: 'var(--orange)',
+            vix: 'var(--yellow)', internals: 'var(--green)',
+            sentiment: 'var(--red)'
+        };
+        const labels = {
+            technical: 'Technical', tick_momentum: 'Tick Mom.',
+            gex: 'GEX', flow: 'Flow',
+            vix: 'VIX', internals: 'Internals',
+            sentiment: 'Sentiment'
+        };
+        let html = '';
+        for (const [key, weight] of Object.entries(w)) {
+            const pct = (weight * 100).toFixed(0);
+            html += `
+            <div class="weight-bar-row">
+                <span class="weight-label">${labels[key] || key}</span>
+                <div class="weight-bar-track">
+                    <div class="weight-bar-fill" style="width:${pct}%;background:${colors[key] || 'var(--blue)'}">
+                        ${pct}%
+                    </div>
+                </div>
+            </div>`;
+        }
+        html += `<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px;">
+            <div class="quant-metric">
+                <span class="quant-metric-label">Target Delta</span>
+                <span class="quant-metric-value">${d.target_delta}</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Premium Range</span>
+                <span class="quant-metric-value">$${d.min_premium} — $${d.max_premium}</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Profit Target</span>
+                <span class="quant-metric-value text-green">${(d.pt_profit_target_pct*100).toFixed(0)}%</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Stop Loss</span>
+                <span class="quant-metric-value text-red">${(d.sl_stop_loss_pct*100).toFixed(0)}%</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Trailing Stop</span>
+                <span class="quant-metric-value text-yellow">${(d.sl_trailing_pct*100).toFixed(0)}%</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Entry Window</span>
+                <span class="quant-metric-value">${d.entry_start} — ${d.entry_cutoff} ET</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Hard Close</span>
+                <span class="quant-metric-value text-red">${d.hard_close} ET</span>
+            </div>
+        </div>`;
+        $('ensemblePanel').innerHTML = html;
+    }
+
+    // ── Render: Options Chain ──────────────────────────────
+    async function refreshChain(sym) {
+        sym = sym || currentChain;
+        const d = await api('chain/' + sym);
+        if (!d || !d.length) {
+            $('chainContainer').innerHTML = `<div class="empty-state"><div class="empty-state-icon">&#x1F4DC;</div>No 0DTE contracts for ${sym} today</div>`;
+            return;
+        }
+        const calls = d.filter(c => c.type === 'call');
+        const puts = d.filter(c => c.type === 'put');
+
+        let html = '<table><thead><tr>';
+        html += '<th>Strike</th><th class="text-right">C.Bid</th><th class="text-right">C.Ask</th><th class="text-right">C.Last</th><th class="text-right">C.IV</th><th class="text-right">C.Delta</th>';
+        html += '<th style="width:20px;"></th>';
+        html += '<th class="text-right">P.Delta</th><th class="text-right">P.IV</th><th class="text-right">P.Last</th><th class="text-right">P.Bid</th><th class="text-right">P.Ask</th>';
+        html += '</tr></thead><tbody>';
+
+        // Build strike map
+        const strikes = new Map();
+        for (const c of calls) {
+            const k = c.strike;
+            if (!strikes.has(k)) strikes.set(k, {});
+            strikes.get(k).call = c;
+        }
+        for (const p of puts) {
+            const k = p.strike;
+            if (!strikes.has(k)) strikes.set(k, {});
+            strikes.get(k).put = p;
+        }
+
+        const sortedStrikes = [...strikes.keys()].sort((a, b) => parseFloat(a) - parseFloat(b));
+        for (const strike of sortedStrikes) {
+            const row = strikes.get(strike);
+            const c = row.call || {};
+            const p = row.put || {};
+            html += `<tr>
+                <td class="text-center" style="font-weight:700;">${strike}</td>
+                <td class="text-right">${c.bid || '—'}</td>
+                <td class="text-right">${c.ask || '—'}</td>
+                <td class="text-right">${c.last || '—'}</td>
+                <td class="text-right text-muted">${c.iv || '—'}</td>
+                <td class="text-right text-blue">${c.delta || '—'}</td>
+                <td></td>
+                <td class="text-right text-blue">${p.delta || '—'}</td>
+                <td class="text-right text-muted">${p.iv || '—'}</td>
+                <td class="text-right">${p.last || '—'}</td>
+                <td class="text-right">${p.bid || '—'}</td>
+                <td class="text-right">${p.ask || '—'}</td>
+            </tr>`;
+        }
+        html += '</tbody></table>';
+        $('chainContainer').innerHTML = html;
+    }
+
+    function selectChain(sym, el) {
+        currentChain = sym;
+        document.querySelectorAll('#chainTabs .tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+        $('chainContainer').innerHTML = '<div class="empty-state">Loading...</div>';
+        refreshChain(sym);
+    }
+
+    // ── Render: Orders ─────────────────────────────────────
+    async function refreshOrders() {
+        const d = await api('orders');
+        if (!d || !d.length) {
+            $('ordersContainer').innerHTML = '<div class="empty-state"><div class="empty-state-icon">&#x1F4DD;</div>No recent orders</div>';
+            $('orderCount').textContent = '0';
+            return;
+        }
+        $('orderCount').textContent = d.length;
+        let html = '<table><thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th class="text-right">Qty</th><th class="text-right">Limit</th><th class="text-right">Filled</th><th>Status</th></tr></thead><tbody>';
+        const statusColors = {
+            'filled': 'badge-green', 'new': 'badge-blue', 'partially_filled': 'badge-yellow',
+            'canceled': 'badge-red', 'cancelled': 'badge-red', 'expired': 'badge-red',
+            'rejected': 'badge-red', 'accepted': 'badge-blue', 'pending_new': 'badge-yellow',
+        };
+        for (const o of d) {
+            const sideClass = o.side === 'buy' ? 'text-green' : 'text-red';
+            const stClass = statusColors[o.status.toLowerCase()] || 'badge-blue';
+            html += `<tr>
+                <td>${o.created_at}</td>
+                <td style="font-weight:600;">${o.symbol}</td>
+                <td class="${sideClass}" style="font-weight:600;text-transform:uppercase;">${o.side}</td>
+                <td class="text-right">${o.qty}</td>
+                <td class="text-right">${o.limit_price ? '$' + o.limit_price : '—'}</td>
+                <td class="text-right">${o.filled_avg_price ? '$' + o.filled_avg_price : '—'}</td>
+                <td><span class="badge ${stClass}">${o.status}</span></td>
+            </tr>`;
+        }
+        html += '</tbody></table>';
+        $('ordersContainer').innerHTML = html;
+    }
+
+    // ── Render: Trade History ──────────────────────────────
+    async function refreshTrades() {
+        const d = await api('trades');
+        if (!d || !d.trades || !d.trades.length) {
+            return; // Keep default empty state
+        }
+        $('tradeCount').textContent = d.trades.length;
+        let html = '<table><thead><tr><th>Time</th><th>Symbol</th><th>Type</th><th class="text-right">Contracts</th><th class="text-right">Entry</th><th class="text-right">Exit</th><th class="text-right">P&L</th><th>Reason</th></tr></thead><tbody>';
+        for (const t of d.trades) {
+            const pl = parseFloat(t.pnl || 0);
+            html += `<tr>
+                <td>${(t.entry_time || '').slice(0, 19)}</td>
+                <td style="font-weight:600;">${t.contract_symbol || ''}</td>
+                <td>${t.option_type || ''}</td>
+                <td class="text-right">${t.contracts || ''}</td>
+                <td class="text-right">${fmtMoney(t.entry_premium)}</td>
+                <td class="text-right">${t.exit_premium ? fmtMoney(t.exit_premium) : '—'}</td>
+                <td class="text-right ${pnlClass(pl)}">${t.pnl ? pnlSign(pl) : '—'}</td>
+                <td class="text-muted">${t.exit_reason || ''}</td>
+            </tr>`;
+        }
+        html += '</tbody></table>';
+        $('tradesContainer').innerHTML = html;
+    }
+
+    // ── Loading Indicator ──────────────────────────────────
+    function showLoading() { $('refreshBar').classList.add('loading'); }
+    function hideLoading() {
+        $('refreshBar').classList.remove('loading');
+        setTimeout(() => {
+            $('refreshBar').querySelector('.refresh-bar-fill').style.width = '0%';
+        }, 300);
+    }
+
+    // ── Main Refresh Loop ──────────────────────────────────
+    async function refreshAll() {
+        showLoading();
+        await Promise.all([
+            refreshAccount(),
+            refreshPrices(),
+            refreshPositions(),
+            refreshOrders(),
+        ]);
+        hideLoading();
+    }
+
+    async function refreshSlow() {
+        await Promise.all([
+            refreshVIX(),
+            refreshChain(),
+            refreshTrades(),
+        ]);
+    }
+
+    // ── Init ───────────────────────────────────────────────
+    async function init() {
+        await refreshConfig();
+        await refreshAll();
+        await refreshSlow();
+
+        // Fast refresh: account, prices, positions, orders every 10s
+        setInterval(refreshAll, 10000);
+        // Slow refresh: VIX, chain, trades every 60s
+        setInterval(refreshSlow, 60000);
+    }
+
+    init();
+    </script>
+</body>
+</html>
