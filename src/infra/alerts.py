@@ -43,22 +43,37 @@ class AlertManager:
         except Exception:
             logger.exception("Failed to send Telegram alert")
 
-    async def trade_opened(self, underlying: str, option_type: str, strike: Decimal,
-                           contracts: int, premium: Decimal) -> None:
+    async def trade_opened(self, **kwargs) -> None:
+        underlying = kwargs.get("underlying", "?")
+        option_type = kwargs.get("option_type", "?")
+        strike = kwargs.get("strike", "?")
+        contracts = kwargs.get("contracts", 0)
+        premium = kwargs.get("premium", 0)
+        confidence = kwargs.get("confidence", 0)
+        reason = kwargs.get("reason", "")
         msg = (f"*Trade Opened*\n"
                f"Underlying: `{underlying}`\n"
                f"Type: {option_type} @ ${strike}\n"
                f"Contracts: {contracts}\n"
-               f"Premium: ${premium}")
+               f"Premium: ${premium}\n"
+               f"Confidence: {confidence}")
+        if reason:
+            msg += f"\nReason: {reason}"
         await self.send(msg)
 
-    async def trade_closed(self, underlying: str, pnl: Decimal,
-                           hold_time_minutes: float, reason: str) -> None:
-        sign = "+" if pnl >= 0 else ""
+    async def trade_closed(self, **kwargs) -> None:
+        underlying = kwargs.get("underlying", "?")
+        pnl = kwargs.get("pnl", 0)
+        reason = kwargs.get("reason", "")
+        hold_time = kwargs.get("hold_time", "")
+        entry_premium = kwargs.get("entry_premium", 0)
+        exit_premium = kwargs.get("exit_premium", 0)
+        sign = "+" if float(pnl) >= 0 else ""
         msg = (f"*Trade Closed*\n"
                f"Underlying: `{underlying}`\n"
+               f"Entry: ${entry_premium} → Exit: ${exit_premium}\n"
                f"P&L: {sign}${pnl}\n"
-               f"Hold: {hold_time_minutes:.1f} min\n"
+               f"Hold: {hold_time}\n"
                f"Reason: {reason}")
         await self.send(msg)
 

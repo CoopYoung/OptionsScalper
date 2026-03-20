@@ -549,34 +549,55 @@ class TelegramBot:
             await self.send(f"Unknown underlying: `{underlying}`\nAvailable: {', '.join(self._settings.underlying_list)}")
             return
 
-        if not self._trading_client or not self._data_client:
+        if not self._trading_client or not self._data_client or not self._stock_client:
             await self.send("Not connected to Alpaca")
             return
 
         try:
+            from alpaca.data.requests import StockSnapshotRequest
             from alpaca.trading.requests import GetOptionContractsRequest
 
+            # Get current underlying price to filter strikes near ATM
+            stock_snap = self._stock_client.get_stock_snapshot(
+                StockSnapshotRequest(symbol_or_symbols=[underlying])
+            )
+            snap = stock_snap.get(underlying)
+            if not snap or not snap.latest_trade:
+                await self.send(f"Cannot get current price for {underlying}")
+                return
+            current_price = float(snap.latest_trade.price)
+
             today = date.today()
+            # Filter to strikes within ±3% of current price
+            strike_low = round(current_price * 0.97)
+            strike_high = round(current_price * 1.03)
+
             params = GetOptionContractsRequest(
                 underlying_symbols=[underlying],
                 expiration_date=today.isoformat(),
                 status="active",
+                strike_price_gte=str(strike_low),
+                strike_price_lte=str(strike_high),
             )
             response = self._trading_client.get_option_contracts(params)
             contracts = response.option_contracts if response and hasattr(response, 'option_contracts') else []
 
             if not contracts:
-                await self.send(f"*{underlying} Chain*\nNo 0DTE contracts available today.")
+                await self.send(f"*{underlying} Chain*\nNo 0DTE contracts near ${current_price:.2f} today.")
                 return
 
-            # Get snapshots for a subset
-            symbols = [c.symbol for c in contracts[:40]]
+            # Get snapshots for all filtered contracts (should be manageable near ATM)
+            symbols = [c.symbol for c in contracts]
             snapshots = {}
             try:
                 from alpaca.data.requests import OptionSnapshotRequest
-                snapshots = self._data_client.get_option_snapshot(
-                    OptionSnapshotRequest(symbol_or_symbols=symbols)
-                )
+                # Fetch in batches of 50 if needed
+                for i in range(0, len(symbols), 50):
+                    batch = symbols[i:i+50]
+                    batch_snaps = self._data_client.get_option_snapshot(
+                        OptionSnapshotRequest(symbol_or_symbols=batch)
+                    )
+                    snapshots.update(batch_snaps)
             except Exception:
                 pass
 
@@ -589,32 +610,36 @@ class TelegramBot:
                 bid = f"{float(quote.bid_price):.2f}" if quote and quote.bid_price else "—"
                 ask = f"{float(quote.ask_price):.2f}" if quote and quote.ask_price else "—"
                 delta = f"{float(greeks.delta):.2f}" if greeks and greeks.delta else "—"
+                iv = f"{float(greeks.implied_volatility):.0%}" if greeks and greeks.implied_volatility else "—"
                 ctype = str(c.type).split(".")[-1].lower()
+                strike_val = float(c.strike_price)
                 entry = {
-                    "strike": str(c.strike_price),
-                    "bid": bid, "ask": ask, "delta": delta
+                    "strike": f"{strike_val:.0f}",
+                    "bid": bid, "ask": ask, "delta": delta, "iv": iv,
+                    "strike_val": strike_val,
                 }
                 if ctype == "call":
                     calls.append(entry)
                 else:
                     puts.append(entry)
 
-            calls.sort(key=lambda x: float(x["strike"]))
-            puts.sort(key=lambda x: float(x["strike"]))
+            calls.sort(key=lambda x: x["strike_val"])
+            puts.sort(key=lambda x: x["strike_val"])
 
-            lines = [f"*{underlying} 0DTE Chain* ({today.isoformat()})\n"]
+            lines = [f"*{underlying} 0DTE Chain* ({today.isoformat()})",
+                     f"Spot: ${current_price:.2f}  Strikes: ${strike_low}-${strike_high}\n"]
 
             if calls:
                 lines.append("*Calls*")
-                lines.append("`Strike  Bid    Ask    Delta`")
-                for c in calls[:15]:
-                    lines.append(f"`{c['strike']:>6s}  {c['bid']:>5s}  {c['ask']:>5s}  {c['delta']:>5s}`")
+                lines.append("`Strike  Bid    Ask    Delta  IV`")
+                for c in calls[:12]:
+                    lines.append(f"`{c['strike']:>6s}  {c['bid']:>5s}  {c['ask']:>5s}  {c['delta']:>5s}  {c['iv']:>4s}`")
 
             if puts:
                 lines.append("\n*Puts*")
-                lines.append("`Strike  Bid    Ask    Delta`")
-                for p in puts[:15]:
-                    lines.append(f"`{p['strike']:>6s}  {p['bid']:>5s}  {p['ask']:>5s}  {p['delta']:>5s}`")
+                lines.append("`Strike  Bid    Ask    Delta  IV`")
+                for p in puts[:12]:
+                    lines.append(f"`{p['strike']:>6s}  {p['bid']:>5s}  {p['ask']:>5s}  {p['delta']:>5s}  {p['iv']:>4s}`")
 
             await self.send("\n".join(lines))
         except Exception as e:

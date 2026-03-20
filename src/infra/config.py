@@ -41,7 +41,6 @@ class Settings(BaseSettings):
         env_file=_env_files(),
         env_file_encoding="utf-8",
         case_sensitive=False,
-        extra="ignore",
     )
 
     # ── Alpaca ──────────────────────────────────────────────────
@@ -75,8 +74,8 @@ class Settings(BaseSettings):
     min_spread_ratio: float = 0.90    # bid/ask ratio >= 0.90 (tight spread)
 
     # ── Timing (all ET) ─────────────────────────────────────────
-    entry_start: str = "09:45"        # 15 min after open for vol to settle
-    entry_cutoff: str = "14:30"       # Stop new entries 1 hr before cutoff
+    entry_start: str = "10:00"        # 30 min after open for vol/spread to settle
+    entry_cutoff: str = "14:00"       # No new entries after 2 PM ET (1 PM CT)
     hard_close: str = "15:15"         # Close all 15 min before 3:30 cutoff
 
     # ── Risk ────────────────────────────────────────────────────

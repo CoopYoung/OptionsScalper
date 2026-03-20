@@ -9,11 +9,11 @@ redis[hiredis]>=5.0
 yfinance>=0.2.30
 numpy>=1.26
 pandas>=2.1
+scipy>=1.12
 
 # Sentiment / NLP
 transformers>=4.36
 torch>=2.1
-praw>=7.7
 textblob>=0.18
 feedparser>=6.0
 
@@ -22,9 +22,11 @@ py_vollib>=1.0.1
 
 # Database
 aiosqlite>=0.19
+peewee>=3.17
 
 # Web dashboard
 aiohttp-jinja2>=1.6
+jinja2>=3.1
 
 # Testing
 pytest>=7.4
