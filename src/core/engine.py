@@ -10,7 +10,7 @@ import asyncio
 import json
 import logging
 from collections import deque
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
 from zoneinfo import ZoneInfo
@@ -20,7 +20,7 @@ from src.data.alpaca_stream import AlpacaStream
 from src.data.cache import PriceCache
 from src.data.options_chain import OptionsChainManager
 from src.data.trade_db import TradeDB
-from src.infra.alerts import TelegramAlerts
+from src.infra.alerts import AlertManager
 from src.infra.config import Settings
 from src.quant.flow import FlowAnalyzer
 from src.quant.gex import GEXAnalyzer
@@ -51,7 +51,7 @@ class TradingEngine:
         self._stream = AlpacaStream(settings)
         self._cache = PriceCache(settings)
         self._db = TradeDB(settings.sqlite_db_path)
-        self._alerts = TelegramAlerts(settings)
+        self._alerts = AlertManager(settings)
         self._cb = CircuitBreaker(settings)
         self._risk = OptionsRiskManager(settings, self._cb)
         self._chain_mgr = OptionsChainManager(settings, self._client)
@@ -83,13 +83,21 @@ class TradingEngine:
         self._last_prices: dict[str, Decimal] = {}
 
     async def start(self) -> None:
-        """Initialize all components and start trading loops."""
+        """Initialize components and run the daily trading cycle.
+
+        Designed for overnight Docker deployment:
+        - Starts dashboard + Telegram bot immediately (always available)
+        - Waits for market open if started outside trading hours
+        - Runs trading loops during market hours
+        - Closes positions at hard_close, then idles until next trading day
+        - Repeats indefinitely until stopped
+        """
         logger.info("=" * 60)
         logger.info("Zero-DTE Scalper starting (%s mode)", self._settings.trading_mode.value)
         logger.info("Underlyings: %s", self._settings.underlying_list)
         logger.info("=" * 60)
 
-        # Connect to services
+        # Connect to services (persistent — survive across trading days)
         self._db.connect()
         await self._cache.connect_redis()
 
@@ -112,29 +120,179 @@ class TradingEngine:
             self._risk.set_portfolio_value(Decimal(account["equity"]))
             logger.info("Account equity: $%s", account["equity"])
 
-        # Pre-market setup
-        await self._pre_market_setup()
+        # Start web dashboard (always on, even outside market hours)
+        if self._settings.web_enabled:
+            from src.web.engine_dashboard import Dashboard
+            self._dashboard = Dashboard(self, port=self._settings.web_port)
+            await self._dashboard.start()
+
+        # Start Telegram bot (always on for remote monitoring)
+        await self._start_telegram_bot()
 
         # Register stream callbacks
         self._stream.on_trade(self._on_underlying_trade)
 
-        # Start web dashboard
-        if self._settings.web_enabled:
-            from src.web.app import Dashboard
-            self._dashboard = Dashboard(self, port=self._settings.web_port)
-            await self._dashboard.start()
-
-        # Start all loops
+        # ── Daily trading cycle (runs forever) ────────────────
         self._running = True
-        logger.info("Starting trading loops...")
+        while self._running:
+            try:
+                await self._wait_for_market_open()
+                if not self._running:
+                    break
 
-        await asyncio.gather(
-            self._stream.start(),
-            self._fast_loop(),
-            self._quant_loop(),
-            self._strategy_loop(),
-            self._chain_refresh_loop(),
+                # Fresh daily setup
+                await self._pre_market_setup()
+
+                logger.info("Market open — starting trading loops")
+                await self._send_alert("Market open — trading loops started")
+
+                # Run trading loops until market close
+                await self._run_trading_session()
+
+                # End of day cleanup
+                await self._end_of_day()
+
+            except Exception:
+                logger.exception("Daily cycle error — will retry next trading day")
+                await asyncio.sleep(60)  # Brief pause before retrying
+
+    async def _wait_for_market_open(self) -> None:
+        """Sleep until 15 minutes before market open (9:15 AM ET).
+
+        This gives time for pre-market setup before entry_start.
+        """
+        while self._running:
+            now_et = datetime.now(ET)
+            weekday = now_et.weekday()  # 0=Mon, 6=Sun
+
+            # Skip weekends
+            if weekday >= 5:
+                next_monday = now_et + timedelta(days=(7 - weekday))
+                wake_at = next_monday.replace(hour=9, minute=15, second=0, microsecond=0)
+                wait_secs = (wake_at - now_et).total_seconds()
+                logger.info("Weekend — sleeping until Monday %s ET (%.0f hours)",
+                            wake_at.strftime("%H:%M"), wait_secs / 3600)
+                await self._sleep_interruptible(wait_secs)
+                continue
+
+            current_time = now_et.time()
+            pre_market = datetime.strptime("09:15", "%H:%M").time()
+            market_close = datetime.strptime("16:00", "%H:%M").time()
+
+            # If we're before pre-market, sleep until 9:15 AM ET
+            if current_time < pre_market:
+                wake_at = now_et.replace(hour=9, minute=15, second=0, microsecond=0)
+                wait_secs = (wake_at - now_et).total_seconds()
+                logger.info("Pre-market — sleeping until %s ET (%.0f min)",
+                            wake_at.strftime("%H:%M"), wait_secs / 60)
+                await self._sleep_interruptible(wait_secs)
+                return
+
+            # If market is already open, start immediately
+            if current_time < market_close:
+                logger.info("Market is open — starting immediately")
+                return
+
+            # After market close — sleep until tomorrow 9:15 AM ET
+            tomorrow = now_et + timedelta(days=1)
+            wake_at = tomorrow.replace(hour=9, minute=15, second=0, microsecond=0)
+            wait_secs = (wake_at - now_et).total_seconds()
+            logger.info("After hours — sleeping until tomorrow %s ET (%.0f hours)",
+                        wake_at.strftime("%H:%M"), wait_secs / 3600)
+            await self._sleep_interruptible(wait_secs)
+
+    async def _sleep_interruptible(self, seconds: float) -> None:
+        """Sleep that can be interrupted by engine stop."""
+        try:
+            # Sleep in 30-second chunks so we can respond to shutdown
+            remaining = seconds
+            while remaining > 0 and self._running:
+                chunk = min(remaining, 30)
+                await asyncio.sleep(chunk)
+                remaining -= chunk
+        except asyncio.CancelledError:
+            pass
+
+    async def _run_trading_session(self) -> None:
+        """Run all trading loops until market close (4 PM ET)."""
+        # Start WebSocket stream
+        stream_task = asyncio.create_task(self._stream.start())
+
+        # Run loops concurrently
+        loop_tasks = [
+            asyncio.create_task(self._fast_loop()),
+            asyncio.create_task(self._quant_loop()),
+            asyncio.create_task(self._strategy_loop()),
+            asyncio.create_task(self._chain_refresh_loop()),
+        ]
+
+        # Wait until market close
+        while self._running:
+            now_et = datetime.now(ET)
+            if now_et.time() >= datetime.strptime("16:00", "%H:%M").time():
+                logger.info("Market closed (4:00 PM ET) — stopping trading loops")
+                break
+            await asyncio.sleep(10)
+
+        # Stop all loops
+        self._running = False  # Temporarily — signals loops to exit
+        for task in loop_tasks:
+            task.cancel()
+        stream_task.cancel()
+
+        # Wait for tasks to finish
+        await asyncio.gather(*loop_tasks, stream_task, return_exceptions=True)
+        await self._stream.stop()
+
+        # Re-enable for next day
+        self._running = True
+
+    async def _end_of_day(self) -> None:
+        """End-of-day cleanup: close positions, persist state, send summary."""
+        logger.info("End of day — closing all positions")
+
+        # Close any remaining positions
+        await self._close_all_positions("End of day")
+
+        # Persist state
+        self._persist_state()
+
+        # Send daily summary via Telegram
+        risk_status = self._risk.status()
+        summary = (
+            f"End of Day Summary\n"
+            f"{'=' * 30}\n"
+            f"P&L: ${float(risk_status.get('daily_pnl', 0)):+,.2f}\n"
+            f"Trades: {risk_status.get('trades_today', 0)}\n"
+            f"Win Rate: {risk_status.get('win_rate', 'N/A')}\n"
+            f"Portfolio: ${float(risk_status.get('portfolio_value', 0)):,.2f}"
         )
+        await self._send_alert(summary)
+        logger.info("End of day complete — will resume tomorrow")
+
+    async def _start_telegram_bot(self) -> None:
+        """Start the Telegram command bot if credentials are configured."""
+        if not self._settings.telegram_bot_token:
+            logger.info("Telegram bot token not set — skipping")
+            return
+
+        try:
+            from src.infra.telegram_bot import TelegramBot
+            self._telegram_bot = TelegramBot(self._settings)
+            self._telegram_bot.set_engine(self)
+            asyncio.create_task(self._telegram_bot.start())
+            logger.info("Telegram bot started")
+        except ImportError:
+            logger.warning("Telegram bot module not available")
+        except Exception:
+            logger.exception("Failed to start Telegram bot")
+
+    async def _send_alert(self, message: str) -> None:
+        """Send an alert via Telegram (best-effort)."""
+        try:
+            await self._alerts.send(message)
+        except Exception:
+            logger.debug("Alert send failed: %s", message[:50])
 
     async def stop(self) -> None:
         """Graceful shutdown."""
@@ -151,6 +309,14 @@ class TradingEngine:
         await self._stream.stop()
         await self._cache.close()
         self._db.close()
+
+        # Stop Telegram bot
+        if hasattr(self, '_telegram_bot'):
+            try:
+                await self._telegram_bot.stop()
+            except Exception:
+                pass
+
         logger.info("Shutdown complete")
 
     # ── Pre-Market Setup ──────────────────────────────────────

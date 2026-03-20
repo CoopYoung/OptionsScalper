@@ -13,9 +13,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # App code
 COPY src/ src/
-COPY .env* ./
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
+
+# Dashboard port
+EXPOSE 8090
 
 CMD ["python", "-m", "src.core"]
