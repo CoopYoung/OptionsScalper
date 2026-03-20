@@ -24,6 +24,8 @@ import aiohttp_jinja2
 import jinja2
 
 from src.infra.config import Settings, get_settings
+from src.quant.flow import FlowAnalyzer
+from src.quant.gex import GEXAnalyzer
 
 logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).parent
@@ -334,6 +336,136 @@ class DashboardData:
         except Exception:
             return {"trades": [], "stats": {}}
 
+    async def get_gex_data(self, underlying: str) -> dict:
+        """Compute GEX from cached chain data using GEXAnalyzer."""
+        cache_key = f"gex_{underlying}"
+        if self._cache_valid(cache_key, 30.0):
+            return self._cache[cache_key]
+
+        chain_data = await self.get_options_chain(underlying)
+        if not chain_data:
+            return {}
+
+        prices_data = await self.get_prices()
+        spot = float(prices_data.get(underlying, {}).get("price", 0))
+        if spot <= 0:
+            return {}
+
+        chain_objs = self._chain_dicts_to_objects(chain_data)
+        if not chain_objs:
+            return {}
+
+        if not hasattr(self, '_gex_analyzer'):
+            self._gex_analyzer = GEXAnalyzer(self._settings)
+
+        signals = await self._gex_analyzer.update(underlying, chain_objs, spot)
+        result = {
+            "regime": signals.regime.value,
+            "total_gex": signals.total_gex,
+            "call_wall": signals.call_wall,
+            "put_wall": signals.put_wall,
+            "flip_point": round(signals.flip_point, 2),
+            "nearest_support": round(signals.nearest_support, 2),
+            "nearest_resistance": round(signals.nearest_resistance, 2),
+            "score_call": round(self._gex_analyzer.get_score(underlying, "call"), 3),
+            "score_put": round(self._gex_analyzer.get_score(underlying, "put"), 3),
+            "levels": [
+                {
+                    "strike": l.strike,
+                    "gex_value": round(l.gex_value, 0),
+                    "is_call_wall": l.is_call_wall,
+                    "is_put_wall": l.is_put_wall,
+                }
+                for l in signals.key_levels[:15]
+            ],
+        }
+        self._set_cache(cache_key, result)
+        return result
+
+    async def get_flow_data(self) -> dict:
+        """Compute flow signals from all chains using FlowAnalyzer."""
+        if self._cache_valid("flow", 30.0):
+            return self._cache["flow"]
+
+        all_chain_objs = []
+        for underlying in self._settings.underlying_list:
+            chain_data = await self.get_options_chain(underlying)
+            all_chain_objs.extend(self._chain_dicts_to_objects(chain_data))
+
+        if not hasattr(self, '_flow_analyzer'):
+            self._flow_analyzer = FlowAnalyzer(self._settings)
+
+        signals = await self._flow_analyzer.update(all_chain_objs if all_chain_objs else None)
+        result = {
+            "put_call_ratio": signals.put_call_ratio,
+            "flow_direction": signals.flow_direction,
+            "call_volume": signals.call_volume,
+            "put_volume": signals.put_volume,
+            "call_premium": round(signals.call_premium, 0),
+            "put_premium": round(signals.put_premium, 0),
+            "net_delta_exposure": signals.net_delta_exposure,
+            "oi_skew": signals.oi_skew,
+            "smart_money_bias": signals.smart_money_bias,
+            "extreme_reading": signals.extreme_reading,
+            "score_call": round(self._flow_analyzer.get_score("call"), 3),
+            "score_put": round(self._flow_analyzer.get_score("put"), 3),
+            "unusual_activity": [
+                {
+                    "symbol": u.symbol,
+                    "option_type": u.option_type,
+                    "strike": u.strike,
+                    "volume": u.volume,
+                    "open_interest": u.open_interest,
+                    "vol_oi_ratio": u.vol_oi_ratio,
+                    "trade_type": u.trade_type,
+                    "sentiment": u.sentiment,
+                    "premium": round(u.premium, 0),
+                }
+                for u in signals.unusual_activity[:10]
+            ],
+        }
+        self._set_cache("flow", result)
+        return result
+
+    @staticmethod
+    def _chain_dicts_to_objects(chain_data: list[dict]) -> list:
+        """Convert chain dict data to simple objects for GEX/Flow analyzers."""
+
+        class _ChainContract:
+            __slots__ = (
+                "symbol", "option_type", "strike", "bid", "ask", "mid",
+                "delta", "gamma", "theta", "vega", "iv",
+                "open_interest", "volume",
+            )
+
+        objs = []
+        for c in chain_data:
+            obj = _ChainContract()
+            obj.symbol = c.get("symbol", "")
+            obj.option_type = c.get("type", "call")
+            obj.strike = Decimal(c.get("strike", "0"))
+            bid = c.get("bid", "0")
+            ask = c.get("ask", "0")
+            obj.bid = Decimal(bid) if bid != "—" else Decimal("0")
+            obj.ask = Decimal(ask) if ask != "—" else Decimal("0")
+            obj.mid = (obj.bid + obj.ask) / 2 if obj.ask > 0 else obj.bid
+            delta_str = c.get("delta", "0")
+            obj.delta = float(delta_str) if delta_str != "—" else 0.0
+            gamma_str = c.get("gamma", "0")
+            obj.gamma = float(gamma_str) if gamma_str != "—" else 0.0
+            theta_str = c.get("theta", "0")
+            obj.theta = float(theta_str) if theta_str != "—" else 0.0
+            vega_str = c.get("vega", "0")
+            obj.vega = float(vega_str) if vega_str != "—" else 0.0
+            iv_str = c.get("iv", "0")
+            obj.iv = float(iv_str) / 100 if iv_str != "—" else 0.0  # Convert % to decimal
+            oi_str = c.get("open_interest", "0")
+            obj.open_interest = int(oi_str) if oi_str != "—" else 0
+            vol_str = c.get("volume", "0")
+            obj.volume = int(vol_str) if vol_str != "—" else 0
+            objs.append(obj)
+        return objs
+
 
 def _json_serial(obj: Any) -> str:
     if isinstance(obj, Decimal):
@@ -402,6 +534,15 @@ def create_app(settings: Settings = None) -> web.Application:
         result = await data.get_trade_history()
         return web.json_response(result, dumps=lambda x: json.dumps(x, default=_json_serial))
 
+    async def api_gex(request: web.Request) -> web.Response:
+        underlying = request.match_info.get("underlying", "SPY")
+        result = await data.get_gex_data(underlying)
+        return web.json_response(result)
+
+    async def api_flow(request: web.Request) -> web.Response:
+        result = await data.get_flow_data()
+        return web.json_response(result)
+
     async def api_config(request: web.Request) -> web.Response:
         return web.json_response({
             "underlyings": settings.underlying_list,
@@ -444,6 +585,8 @@ def create_app(settings: Settings = None) -> web.Application:
     app.router.add_get("/api/orders", api_orders)
     app.router.add_get("/api/chain/{underlying}", api_chain)
     app.router.add_get("/api/vix", api_vix)
+    app.router.add_get("/api/gex/{underlying}", api_gex)
+    app.router.add_get("/api/flow", api_flow)
     app.router.add_get("/api/trades", api_trades)
     app.router.add_get("/api/config", api_config)
 

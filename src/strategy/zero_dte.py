@@ -144,7 +144,7 @@ class ZeroDTEStrategy(BaseStrategy):
         put_confidence = int(max(0, min(100, (put_score + 1) / 2 * 100)))
 
         # Pick stronger direction
-        if call_confidence >= put_confidence and call_confidence >= w.signal_confidence_threshold:
+        if call_confidence >= put_confidence and call_confidence >= self._settings.signal_confidence_threshold:
             direction = TradeDirection.BUY_CALL
             confidence = call_confidence
             option_type = "call"
@@ -152,7 +152,7 @@ class ZeroDTEStrategy(BaseStrategy):
                 tech_score, tick_score, gex_score_call, flow_score_call,
                 vix_score, internals_score, sentiment_score_call, oai_score_call,
             )
-        elif put_confidence > call_confidence and put_confidence >= w.signal_confidence_threshold:
+        elif put_confidence > call_confidence and put_confidence >= self._settings.signal_confidence_threshold:
             direction = TradeDirection.BUY_PUT
             confidence = put_confidence
             option_type = "put"
@@ -163,7 +163,7 @@ class ZeroDTEStrategy(BaseStrategy):
         else:
             return self._make_hold(
                 underlying,
-                f"Below threshold (call={call_confidence}, put={put_confidence}, req={w.signal_confidence_threshold})",
+                f"Below threshold (call={call_confidence}, put={put_confidence}, req={self._settings.signal_confidence_threshold})",
             )
 
         # ── Strike selection ───────────────────────────────────

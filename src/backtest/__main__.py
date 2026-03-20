@@ -7,6 +7,7 @@ Usage:
 """
 
 import argparse
+import asyncio
 import json
 import logging
 import os
@@ -87,7 +88,7 @@ def main() -> None:
         engine = BacktestEngine(settings, slippage, args.capital)
 
         try:
-            result = engine.run(underlying, start_date, end_date, args.interval)
+            result = asyncio.run(engine.run(underlying, start_date, end_date, args.interval))
         except Exception:
             logging.exception("Backtest failed for %s", underlying)
             continue

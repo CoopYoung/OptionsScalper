@@ -5,6 +5,7 @@ Updates every 60s during market hours.
 """
 
 import logging
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
@@ -45,6 +46,9 @@ class VIXRegimeDetector:
         self._latest: Optional[VIXSignals] = None
         self._vix_history: list[float] = []
         self._last_vix: float = 0.0
+        # Per-underlying chain IV tracking
+        self._chain_iv_history: dict[str, deque] = {}
+        self._chain_iv_percentiles: dict[str, float] = {}
 
     async def update(self) -> VIXSignals:
         """Fetch current VIX and compute regime signals."""
@@ -157,6 +161,59 @@ class VIXRegimeDetector:
 
         except Exception:
             return 0.0
+
+    # ── Per-Underlying Chain IV ────────────────────────────────
+
+    def update_chain_iv(self, underlying: str, chain: list) -> None:
+        """Compute per-underlying IV metrics from options chain data.
+
+        Tracks ATM implied volatility over time to build a per-underlying
+        IV percentile, independent of VIX. This captures the actual IV
+        environment for each underlying's options.
+        """
+        if not chain:
+            return
+
+        # Collect IVs from valid contracts
+        atm_ivs = []
+        all_ivs = []
+        for c in chain:
+            iv = getattr(c, 'iv', 0) or 0
+            if iv < 0.01 or iv > 2.0:
+                continue
+            all_ivs.append(iv)
+
+            # ATM = delta near ±0.5
+            delta = getattr(c, 'delta', 0) or 0
+            if 0.35 <= abs(delta) <= 0.65:
+                atm_ivs.append(iv)
+
+        if not all_ivs:
+            return
+
+        # Use ATM IV if available, else median of all IVs
+        if atm_ivs:
+            atm_iv = sum(atm_ivs) / len(atm_ivs)
+        else:
+            sorted_ivs = sorted(all_ivs)
+            atm_iv = sorted_ivs[len(sorted_ivs) // 2]
+
+        # Track in rolling history
+        if underlying not in self._chain_iv_history:
+            self._chain_iv_history[underlying] = deque(maxlen=252)
+        self._chain_iv_history[underlying].append(atm_iv)
+
+        # Compute percentile (needs at least 10 observations)
+        history = list(self._chain_iv_history[underlying])
+        if len(history) >= 10:
+            below = sum(1 for v in history if v < atm_iv)
+            self._chain_iv_percentiles[underlying] = round(
+                (below / len(history)) * 100, 1
+            )
+
+    def get_chain_iv_percentile(self, underlying: str) -> Optional[float]:
+        """Get per-underlying IV percentile from chain data (0-100)."""
+        return self._chain_iv_percentiles.get(underlying)
 
     def _make_fallback(self, reason: str) -> VIXSignals:
         return VIXSignals(
