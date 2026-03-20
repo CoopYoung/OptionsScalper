@@ -101,17 +101,44 @@ class MarketInternals:
         self._tick_history.clear()
 
     async def _fetch_nyse_tick(self) -> int:
-        """Fetch NYSE TICK index."""
+        """Estimate NYSE TICK from sector ETF momentum.
+
+        yfinance does not support ^TICK. Instead, we measure short-term
+        momentum across sector ETFs as a proxy: if most sectors are ticking
+        up in the last few minutes, it approximates a high TICK reading.
+        """
         try:
             import yfinance as yf
 
-            tick = yf.Ticker("^TICK")
-            data = tick.history(period="1d", interval="1m")
-            if not data.empty:
-                return int(data["Close"].iloc[-1])
+            sectors = ["XLK", "XLF", "XLV", "XLE", "XLI", "XLP",
+                        "XLY", "XLU", "XLB", "XLRE", "XLC"]
+            data = yf.download(
+                sectors, period="1d", interval="5m",
+                progress=False, threads=True,
+            )
+            if data.empty or len(data) < 2:
+                return 0
+
+            closes = data["Close"]
+            if len(closes) < 2:
+                return 0
+
+            # Compare last bar to previous bar
+            prev = closes.iloc[-2]
+            curr = closes.iloc[-1]
+            changes = curr - prev
+
+            up = int((changes > 0).sum())
+            down = int((changes < 0).sum())
+            total = len(sectors)
+
+            # Scale to approximate TICK range (-1000 to +1000)
+            # All up ≈ +800, all down ≈ -800
+            net = up - down
+            return int((net / total) * 800)
 
         except Exception:
-            logger.debug("NYSE TICK fetch failed")
+            logger.debug("NYSE TICK proxy fetch failed")
 
         return 0
 
