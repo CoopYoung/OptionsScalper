@@ -36,6 +36,8 @@ from src.risk.exit_manager import ExitContext, ExitManager
 from src.risk.manager import OptionsRiskManager
 from src.strategy.base import TradeDirection
 from src.strategy.signals import compute_all_signals
+from src.strategy.conviction_tracker import ConvictionTracker
+from src.strategy.setup_detector import SetupDetector
 from src.strategy.weight_adapter import WeightAdapter
 from src.strategy.zero_dte import ZeroDTEStrategy
 
@@ -85,6 +87,10 @@ class TradingEngine:
             weight_adapter=self._weight_adapter,
         )
 
+        # ── Setup Detection & Conviction ─────────────────────
+        self._setup_detector = SetupDetector()
+        self._conviction = ConvictionTracker()
+
         # ── State ──────────────────────────────────────────────
         self._candles: dict[str, deque] = {
             sym: deque(maxlen=settings.candle_cache_size)
@@ -93,6 +99,7 @@ class TradingEngine:
         self._open_positions: dict[str, dict] = {}
         self._pending_orders: dict[str, dict] = {}
         self._last_prices: dict[str, Decimal] = {}
+        self._last_reconcile: datetime = datetime.min.replace(tzinfo=timezone.utc)
 
     async def start(self) -> None:
         """Initialize components and run the daily trading cycle.
@@ -498,6 +505,7 @@ class TradingEngine:
         # Reset daily state
         self._risk.reset_daily()
         self._internals.reset_daily()
+        self._setup_detector.reset_daily()
 
     # ── Position Recovery ──────────────────────────────────────
 
@@ -642,6 +650,11 @@ class TradingEngine:
                 # Publish tick momentum to Redis for cross-asset consensus
                 await self._publish_tick_momentum()
 
+                # Reconcile with Alpaca every 60 seconds
+                if (now - self._last_reconcile).total_seconds() >= 60:
+                    await self._reconcile_with_alpaca()
+                    self._last_reconcile = now
+
             except Exception:
                 logger.exception("Fast loop error")
 
@@ -723,9 +736,131 @@ class TradingEngine:
                         symbol, current_premium, decision.reason,
                         urgency=decision.urgency,
                     )
+                    continue
+
+                # Conviction check: re-evaluate signal, exit if thesis breaks
+                underlying = pos["underlying"]
+                conviction_result = self._check_conviction(symbol, underlying)
+                if conviction_result and conviction_result.should_exit:
+                    logger.info(
+                        "CONVICTION EXIT: %s — %s (%.0f%% of entry)",
+                        symbol, conviction_result.reason,
+                        conviction_result.conviction_pct,
+                    )
+                    await self._close_position(
+                        symbol, current_premium,
+                        f"Conviction: {conviction_result.reason}",
+                        urgency=conviction_result.urgency,
+                    )
 
             except Exception:
                 logger.exception("Exit check error for %s", symbol)
+
+    async def _reconcile_with_alpaca(self) -> None:
+        """Lightweight reconciliation: compare engine state vs Alpaca positions.
+
+        Catches drift where engine thinks it has N positions but Alpaca
+        has M (e.g., from failed order tracking, network issues).
+        """
+        try:
+            alpaca_positions = await self._client.get_positions()
+            if alpaca_positions is None:
+                return
+
+            alpaca_symbols = {p["symbol"] for p in alpaca_positions if p.get("asset_class") == "us_option"}
+            engine_symbols = set(self._open_positions.keys())
+
+            # Positions Alpaca has but engine doesn't know about
+            orphans = alpaca_symbols - engine_symbols
+            if orphans:
+                logger.warning(
+                    "RECONCILE: Alpaca has %d orphaned positions not tracked: %s",
+                    len(orphans), orphans,
+                )
+                # Force close orphans — we don't know their thesis
+                for sym in orphans:
+                    logger.warning("Force closing orphan position: %s", sym)
+                    await self._client.close_position(sym)
+
+            # Positions engine tracks but Alpaca doesn't have
+            ghosts = engine_symbols - alpaca_symbols
+            if ghosts:
+                logger.warning(
+                    "RECONCILE: Engine tracks %d ghost positions not on Alpaca: %s",
+                    len(ghosts), ghosts,
+                )
+                for sym in ghosts:
+                    self._open_positions.pop(sym, None)
+                    self._conviction.remove(sym)
+                    self._db.remove_open_position(sym)
+
+            # Check total exposure
+            total_qty = sum(
+                int(p.get("qty", 0)) for p in alpaca_positions
+                if p.get("asset_class") == "us_option"
+            )
+            if total_qty > self._settings.max_contracts_per_trade * 3:
+                logger.error(
+                    "RECONCILE: Excessive position count (%d contracts). "
+                    "Halting trading.", total_qty,
+                )
+                self._cb.force_halt(f"Excessive positions: {total_qty} contracts")
+
+        except Exception:
+            logger.debug("Reconciliation check failed")
+
+    def _check_conviction(self, symbol: str, underlying: str):
+        """Re-evaluate current signal and check against entry conviction.
+
+        Returns ConvictionCheck or None if not enough data.
+        """
+        try:
+            price = self._last_prices.get(underlying)
+            if not price:
+                return None
+
+            candles = list(self._candles.get(underlying, []))
+            if len(candles) < 20:
+                return None
+
+            closes = [Decimal(str(c["close"])) for c in candles]
+            tech_signals = compute_all_signals(
+                closes, candles,
+                rsi_period=self._settings.rsi_period,
+                rsi_overbought=self._settings.rsi_overbought,
+                rsi_oversold=self._settings.rsi_oversold,
+                macd_fast=self._settings.macd_fast,
+                macd_slow=self._settings.macd_slow,
+                macd_signal=self._settings.macd_signal,
+                bb_period=self._settings.bb_period,
+                bb_std=self._settings.bb_std,
+            )
+            momentum = self._stream.get_momentum(underlying)
+
+            signal = self._strategy.evaluate(
+                underlying=underlying,
+                current_price=price,
+                signals=tech_signals,
+                momentum=momentum,
+            )
+
+            # Determine current direction
+            if signal.direction == TradeDirection.BUY_CALL:
+                current_dir = "call"
+            elif signal.direction == TradeDirection.BUY_PUT:
+                current_dir = "put"
+            else:
+                current_dir = ""
+
+            return self._conviction.evaluate(
+                symbol=symbol,
+                current_direction=current_dir,
+                current_confidence=signal.confidence,
+                current_breakdown=signal.score_breakdown or {},
+            )
+        except Exception:
+            logger.debug("Conviction check error for %s", symbol)
+            return None
 
     async def _check_pending_orders(self) -> None:
         """Check managed orders: walk prices, handle fills/cancels."""
@@ -853,6 +988,16 @@ class TradingEngine:
             self._risk.record_open(
                 symbol, info["underlying"], qty, filled_price,
                 info.get("contract"),
+            )
+
+            # Conviction snapshot — record signal state at entry for later re-evaluation
+            score_breakdown = info.get("score_breakdown", {})
+            self._conviction.record_entry(
+                symbol=symbol,
+                direction=info["option_type"],
+                confidence=info.get("confidence", 0),
+                score_breakdown=score_breakdown,
+                underlying=info["underlying"],
             )
 
             # Persist to DB for crash recovery
@@ -994,14 +1139,22 @@ class TradingEngine:
             await asyncio.sleep(self._settings.strategy_loop_seconds)
 
     async def _evaluate_entry(self, underlying: str) -> None:
-        """Evaluate entry for a single underlying."""
+        """Evaluate entry for a single underlying.
+
+        Uses SetupDetector to require confirmed, strengthening signals
+        before entering. No more machine-gun entries on every loop tick.
+
+        Flow:
+            1. Compute signal (always — feeds setup detector)
+            2. Record signal in setup detector (builds confirmation)
+            3. Only enter if setup is confirmed (3+ consistent signals)
+            4. Record trade in setup detector (starts cooldown)
+        """
         price = self._last_prices.get(underlying)
         if not price:
             return
 
-        # CRITICAL: Don't enter if we already have any position in this underlying
-        # This prevents the accumulation bug where the bot kept buying the same
-        # contract every 15 seconds, accumulating 355 contracts ($96k exposure)
+        # Block if we already have a position in this underlying
         for pos in self._open_positions.values():
             if pos.get("underlying") == underlying:
                 return
@@ -1024,10 +1177,9 @@ class TradingEngine:
             bb_std=self._settings.bb_std,
         )
 
-        # Get tick momentum
         momentum = self._stream.get_momentum(underlying)
 
-        # Run strategy evaluation
+        # Run strategy evaluation (always — feeds setup detector)
         signal = self._strategy.evaluate(
             underlying=underlying,
             current_price=price,
@@ -1035,8 +1187,27 @@ class TradingEngine:
             momentum=momentum,
         )
 
-        if not signal.should_trade:
+        # Record signal in setup detector (builds or decays confirmation)
+        if signal.should_trade:
+            direction = "call" if signal.direction == TradeDirection.BUY_CALL else "put"
+            self._setup_detector.record_signal(
+                underlying, direction, signal.confidence,
+            )
+        else:
+            self._setup_detector.record_signal(underlying, "", 0)
             return
+
+        # Check if setup is confirmed and ready for entry
+        setup_ok, setup_reason = self._setup_detector.should_enter(underlying)
+        if not setup_ok:
+            logger.debug("Setup not ready for %s: %s", underlying, setup_reason)
+            return
+
+        logger.info(
+            "SETUP CONFIRMED: %s %s conf=%d (avg=%.0f)",
+            underlying, signal.direction.value, signal.confidence,
+            self._setup_detector.get_or_create(underlying).avg_confidence,
+        )
 
         # Risk check
         can_trade, reason = self._risk.can_trade(signal)
@@ -1053,8 +1224,9 @@ class TradingEngine:
         if contracts <= 0:
             return
 
-        # Place order
+        # Place order and record in setup detector + conviction tracker
         await self._place_entry_order(signal, contracts)
+        self._setup_detector.record_trade(underlying)
 
     async def _place_entry_order(self, signal, contracts: int) -> None:
         """Place an entry order via OrderManager with adaptive pricing."""
@@ -1168,6 +1340,10 @@ class TradingEngine:
                 pnl = (current_premium - entry_premium) * qty * 100
                 self._risk.record_close(symbol, pnl)
                 await self._stream.unsubscribe_options([symbol])
+                self._conviction.remove(symbol)
+                underlying = pos.get("underlying", "")
+                if underlying:
+                    self._setup_detector.record_exit(underlying)
                 self._open_positions.pop(symbol, None)
                 self._db.remove_open_position(symbol)
                 logger.info(
@@ -1207,6 +1383,8 @@ class TradingEngine:
             )
 
             await self._stream.unsubscribe_options([symbol])
+            self._conviction.remove(symbol)
+            self._setup_detector.record_exit(underlying)
             self._open_positions.pop(symbol, None)
             self._db.remove_open_position(symbol)
 
