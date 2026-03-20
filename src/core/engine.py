@@ -648,14 +648,24 @@ class TradingEngine:
                     if snap:
                         current_premium = snap.mid
                     else:
-                        continue
+                        # No quote available — still check time-based exits
+                        # (hard close, max hold) using last known premium
+                        current_premium = pos.get("last_premium", pos["entry_premium"])
+                        logger.warning(
+                            "No quote for %s, using last known premium $%.2f",
+                            symbol, float(current_premium),
+                        )
                 else:
                     bid = Decimal(str(quote["bid"]))
                     ask = Decimal(str(quote["ask"]))
                     current_premium = (bid + ask) / 2 if bid > 0 and ask > 0 else Decimal("0")
 
-                if current_premium <= 0:
-                    continue
+                # Track last known premium for fallback
+                if current_premium > 0:
+                    pos["last_premium"] = current_premium
+                else:
+                    # Zero premium: use last known, or entry as final fallback
+                    current_premium = pos.get("last_premium", pos["entry_premium"])
 
                 entry_premium = pos["entry_premium"]
                 peak_premium = pos.get("peak_premium", entry_premium)
@@ -1107,6 +1117,29 @@ class TradingEngine:
             limit_price=limit_price,
         )
 
+        if not order:
+            # Sell order failed — escalate to force close via Alpaca
+            logger.warning(
+                "Limit sell failed for %s, attempting force close", symbol,
+            )
+            result = await self._client.close_position(symbol)
+            if result:
+                # Force close accepted — clean up position tracking
+                pnl = (current_premium - entry_premium) * qty * 100
+                self._risk.record_close(symbol, pnl)
+                await self._stream.unsubscribe_options([symbol])
+                self._open_positions.pop(symbol, None)
+                self._db.remove_open_position(symbol)
+                logger.info(
+                    "FORCE CLOSED: %s PnL=$%.2f (%s)", symbol, float(pnl), reason,
+                )
+            else:
+                logger.error(
+                    "STUCK POSITION: %s — both limit sell and force close failed",
+                    symbol,
+                )
+            return
+
         if order:
             pnl = (current_premium - entry_premium) * qty * 100
             self._risk.record_close(symbol, pnl)
@@ -1165,17 +1198,31 @@ class TradingEngine:
             )
 
     async def _close_all_positions(self, reason: str) -> None:
-        """Close all open positions."""
+        """Close all open positions — escalates to force close on failure."""
         for symbol in list(self._open_positions.keys()):
             try:
                 snapshots = await self._client.get_snapshots([symbol])
                 snap = snapshots.get(symbol)
                 if snap:
-                    await self._close_position(symbol, snap.mid, reason)
+                    await self._close_position(
+                        symbol, snap.mid, reason, urgency="immediate",
+                    )
                 else:
-                    # Force close via Alpaca
+                    # No quote — force close via Alpaca with cleanup
+                    logger.warning("No snapshot for %s, force closing", symbol)
                     await self._client.close_position(symbol)
+                    pos = self._open_positions.get(symbol, {})
+                    entry_premium = pos.get("entry_premium", Decimal("0"))
+                    last_premium = pos.get("last_premium", entry_premium)
+                    qty = pos.get("qty", 1)
+                    pnl = (last_premium - entry_premium) * qty * 100
+                    self._risk.record_close(symbol, pnl)
+                    self._db.remove_open_position(symbol)
                     self._open_positions.pop(symbol, None)
+                    logger.info(
+                        "FORCE CLOSED: %s est_PnL=$%.2f (%s)",
+                        symbol, float(pnl), reason,
+                    )
             except Exception:
                 logger.exception("Error closing position %s", symbol)
 
