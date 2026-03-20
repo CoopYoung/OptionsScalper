@@ -158,6 +158,10 @@ class Settings(BaseSettings):
     weight_sentiment: float = 0.05
     weight_optionsai: float = 0.10
 
+    # Adaptive weights (disabled until sufficient paper trading data)
+    adaptive_weights: bool = False
+    adaptive_min_trades: int = 50   # Minimum trades before adapting
+
 
 def get_settings() -> Settings:
     """Get cached settings instance."""
