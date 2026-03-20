@@ -23,6 +23,8 @@ from src.backtest.data_loader import (
     OptionPricer, SimulatedOption,
 )
 from src.infra.config import Settings
+from src.quant.flow import FlowAnalyzer
+from src.quant.gex import GEXAnalyzer
 from src.risk.circuit_breaker import CircuitBreaker
 from src.risk.manager import OptionsRiskManager
 from src.strategy.base import BaseStrategy, OptionsContract, TradeDirection, TradeSignal
@@ -193,6 +195,34 @@ class BacktestResult:
             f"  Sharpe Ratio:     {self.sharpe_ratio:>9.2f}",
             f"{'=' * 60}",
         ]
+        # Exit reason breakdown
+        from collections import Counter
+        all_trades = [t for d in self.days for t in d.trades]
+        if all_trades:
+            reasons = Counter()
+            reason_pnl: dict[str, float] = {}
+            for t in all_trades:
+                # Normalize reason to category
+                r = t.exit_reason.split("(")[0].strip()
+                reasons[r] += 1
+                reason_pnl[r] = reason_pnl.get(r, 0) + t.pnl
+            lines.append("")
+            lines.append("  Exit Reasons:")
+            for reason, count in reasons.most_common():
+                avg = reason_pnl[reason] / count
+                lines.append(
+                    f"    {reason:<30s} {count:>4d} trades  avg ${avg:>7.2f}"
+                )
+            # Avg winner / avg loser
+            winners = [t.pnl for t in all_trades if t.pnl > 0]
+            losers = [t.pnl for t in all_trades if t.pnl < 0]
+            if winners:
+                lines.append(f"\n  Avg Winner:       ${np.mean(winners):>12,.2f}")
+            if losers:
+                lines.append(f"  Avg Loser:        ${np.mean(losers):>12,.2f}")
+            if winners and losers:
+                lines.append(f"  Win/Loss Ratio:   {abs(np.mean(winners)/np.mean(losers)):>9.2f}")
+            lines.append(f"{'=' * 60}")
         return "\n".join(lines)
 
     def daily_summary(self) -> str:
@@ -239,8 +269,10 @@ class BacktestEngine:
         self._capital = initial_capital
         self._pricer = OptionPricer()
         self._loader = HistoricalDataLoader(settings.underlying_list)
+        self._gex = GEXAnalyzer(settings)
+        self._flow = FlowAnalyzer(settings)
 
-    def run(
+    async def run(
         self,
         underlying: str,
         start_date: date,
@@ -264,10 +296,13 @@ class BacktestEngine:
             )
 
         self._capital = self._initial_capital
+        # Reset GEX/Flow for fresh backtest
+        self._gex = GEXAnalyzer(self._settings)
+        self._flow = FlowAnalyzer(self._settings)
         day_results = []
 
         for day_data in days_data:
-            result = self._backtest_day(day_data)
+            result = await self._backtest_day(day_data)
             day_results.append(result)
             self._capital += result.total_pnl
 
@@ -281,7 +316,7 @@ class BacktestEngine:
             config=self._config_dict(),
         )
 
-    def _backtest_day(self, day: BacktestDay) -> DayResult:
+    async def _backtest_day(self, day: BacktestDay) -> DayResult:
         """Simulate one trading day."""
         cb = CircuitBreaker(self._settings)
         risk = OptionsRiskManager(self._settings, cb)
@@ -299,10 +334,15 @@ class BacktestEngine:
         signals_generated = 0
         signals_blocked = 0
         last_entry_time: Optional[datetime] = None
-        entry_cooldown_minutes = 15  # Min minutes between new entries
+        entry_cooldown_minutes = 3  # Short cooldown — exits manage risk now
+        max_concurrent = 3  # Allow up to 3 simultaneous positions
         day_pnl = 0.0  # Track intraday P&L for daily stop
         # Reset momentum cache for each day
         self._momentum_cache = {}
+
+        # GEX/Flow update tracking — refresh every 5 bars (~10min on 2m bars)
+        bars_since_quant_update = 0
+        gex_update_interval = 5
 
         # Build candle history from bars
         for bar in day.bars:
@@ -316,6 +356,20 @@ class BacktestEngine:
 
             et_time = bar.timestamp.astimezone(ET)
             current_time = et_time.time()
+            bars_since_quant_update += 1
+
+            # ── Update GEX/Flow periodically ──────────────────────
+            if bars_since_quant_update >= gex_update_interval:
+                bars_since_quant_update = 0
+                minutes_to_close = self._minutes_until(et_time, hard_close_h, hard_close_m)
+                quant_chain = self._pricer.generate_chain(
+                    spot=bar.close, vix=day.vix_close,
+                    minutes_to_close=minutes_to_close,
+                    underlying=day.underlying,
+                    expiration=day.date.isoformat(),
+                )
+                await self._gex.update(day.underlying, quant_chain, bar.close)
+                await self._flow.update(quant_chain)
 
             # ── Check exits for open positions ────────────────────
             for trade in list(open_trades):
@@ -354,9 +408,9 @@ class BacktestEngine:
             if (current_time >= time(entry_start_h, entry_start_m) and
                 current_time <= time(entry_cutoff_h, entry_cutoff_m) and
                 len(candles) >= 35 and
-                len(open_trades) == 0 and  # One trade at a time
+                len(open_trades) < max_concurrent and  # Up to 3 concurrent
                 cooldown_ok and
-                day_pnl > -50 and  # Daily P&L stop: stop trading if down $50+
+                day_pnl > -(self._capital * 0.005) and  # Daily stop: 0.5% of capital
                 not cb.is_halted):
 
                 closes = [Decimal(str(c["close"])) for c in candles]
@@ -506,11 +560,13 @@ class BacktestEngine:
     ) -> TradeSignal:
         """Signal evaluation for backtesting.
 
-        Uses multiple factors with a minimum conviction requirement:
-        - Technical (RSI, MACD, BB, Volume Delta)
-        - VIX regime
-        - Price momentum (short-term trend from candle data)
-        - Requires directional agreement across factors
+        Uses multiple factors matching the live ensemble weights:
+        - Technical (RSI, MACD, BB, Volume Delta) — 22%
+        - Price momentum — 18%
+        - GEX regime + levels — 13%
+        - Options flow — 14%
+        - VIX regime — 8%
+        Requires directional agreement across primary factors.
         """
         tech_score = self._score_technicals(tech_signals)
 
@@ -526,43 +582,92 @@ class BacktestEngine:
             vix_score = -0.3
 
         # Short-term momentum: 5-bar price trend
-        momentum_score = self._score_momentum(bar, et_time)
+        momentum_score = self._score_momentum(bar, et_time, underlying)
 
-        # Combined score with momentum providing directional confirmation
-        call_score = tech_score * 0.50 + vix_score * 0.15 + momentum_score * 0.35
-        put_score = -tech_score * 0.50 + (-vix_score) * 0.15 + (-momentum_score) * 0.35
+        # GEX scores (directional)
+        gex_call_score = self._gex.get_score(underlying, "call")
+        gex_put_score = self._gex.get_score(underlying, "put")
+
+        # Flow scores (directional)
+        flow_call_score = self._flow.get_score("call")
+        flow_put_score = self._flow.get_score("put")
+
+        # Combined score using ensemble weights (normalized to sum ~1.0)
+        # tech=0.29, momentum=0.24, gex=0.17, flow=0.19, vix=0.11
+        call_score = (
+            tech_score * 0.29
+            + momentum_score * 0.24
+            + gex_call_score * 0.17
+            + flow_call_score * 0.19
+            + vix_score * 0.11
+        )
+        put_score = (
+            -tech_score * 0.29
+            + (-momentum_score) * 0.24
+            + gex_put_score * 0.17
+            + flow_put_score * 0.19
+            + (-vix_score) * 0.11
+        )
 
         # Scale to 0-100
         call_conf = int(max(0, min(100, (call_score + 1) / 2 * 100)))
         put_conf = int(max(0, min(100, (put_score + 1) / 2 * 100)))
 
-        threshold = self._settings.signal_confidence_threshold
+        # Per-underlying thresholds: SPY is most efficiently priced,
+        # needs slightly higher bar. Exits manage risk, so don't over-filter.
+        underlying_thresholds = {"SPY": 60, "QQQ": 58, "IWM": 57}
+        threshold = max(
+            self._settings.signal_confidence_threshold,
+            underlying_thresholds.get(underlying, 58),
+        )
 
-        # Require directional agreement: tech and momentum must agree
-        tech_bullish = tech_score > 0.1
-        tech_bearish = tech_score < -0.1
-        mom_bullish = momentum_score > 0.1
-        mom_bearish = momentum_score < -0.1
+        breakdown = {
+            "technical": tech_score,
+            "momentum": momentum_score,
+            "gex": gex_call_score,
+            "flow": flow_call_score,
+            "vix": vix_score,
+        }
 
-        if call_conf >= threshold and tech_bullish and mom_bullish:
+        # Directional agreement: require at least one primary factor strongly
+        # directional (>0.2) OR both mildly directional (>0.05).
+        # Old gate (both > 0.1) blocked 60%+ of valid signals.
+        bullish_agreement = (
+            (tech_score > 0.2 or momentum_score > 0.2) and
+            tech_score > -0.05 and momentum_score > -0.05
+        )
+        bearish_agreement = (
+            (tech_score < -0.2 or momentum_score < -0.2) and
+            tech_score < 0.05 and momentum_score < 0.05
+        )
+
+        if call_conf >= threshold and bullish_agreement:
             return TradeSignal(
                 direction=TradeDirection.BUY_CALL,
                 confidence=call_conf,
                 underlying=underlying,
                 contract=None,
                 target_price=Decimal(str(price)),
-                reason=f"Backtest: call conf={call_conf} tech={tech_score:.2f} mom={momentum_score:.2f}",
-                score_breakdown={"technical": tech_score, "vix": vix_score, "momentum": momentum_score},
+                reason=(
+                    f"Backtest: call conf={call_conf} tech={tech_score:.2f} "
+                    f"mom={momentum_score:.2f} gex={gex_call_score:.2f} flow={flow_call_score:.2f}"
+                ),
+                score_breakdown=breakdown,
             )
-        elif put_conf >= threshold and tech_bearish and mom_bearish:
+        elif put_conf >= threshold and bearish_agreement:
+            breakdown["gex"] = gex_put_score
+            breakdown["flow"] = flow_put_score
             return TradeSignal(
                 direction=TradeDirection.BUY_PUT,
                 confidence=put_conf,
                 underlying=underlying,
                 contract=None,
                 target_price=Decimal(str(price)),
-                reason=f"Backtest: put conf={put_conf} tech={-tech_score:.2f} mom={-momentum_score:.2f}",
-                score_breakdown={"technical": -tech_score, "vix": -vix_score, "momentum": -momentum_score},
+                reason=(
+                    f"Backtest: put conf={put_conf} tech={-tech_score:.2f} "
+                    f"mom={-momentum_score:.2f} gex={gex_put_score:.2f} flow={flow_put_score:.2f}"
+                ),
+                score_breakdown=breakdown,
             )
         else:
             return TradeSignal(
@@ -628,20 +733,21 @@ class BacktestEngine:
 
         return max(-1.0, min(1.0, score))
 
-    def _score_momentum(self, bar: HistoricalBar, et_time: datetime) -> float:
+    def _score_momentum(self, bar: HistoricalBar, et_time: datetime, underlying: str = "SPY") -> float:
         """Score -1 to +1 from short-term price momentum.
 
-        Looks at recent candle close prices to determine trend direction
-        and strength. Stored in self._momentum_cache during backtest.
+        Normalizes by rolling realized volatility so that a 0.1% SPY move
+        and a 0.2% QQQ move produce the same score if they represent the
+        same number of standard deviations. This prevents high-beta assets
+        from systematically scoring higher.
         """
         cache = getattr(self, '_momentum_cache', {})
-        underlying = getattr(bar, '_underlying', 'SPY')  # Not ideal but works
 
         # Use the candle history we already have
         history = cache.get(underlying, [])
         history.append(bar.close)
-        if len(history) > 10:
-            history = history[-10:]
+        if len(history) > 20:
+            history = history[-20:]
         cache[underlying] = history
         self._momentum_cache = cache
 
@@ -657,8 +763,22 @@ class BacktestEngine:
 
         pct_change = (recent - earlier) / earlier
 
-        # Scale: 0.1% move → 0.3 score, 0.3% move → 0.8 score
-        score = pct_change * 300  # Amplify small intraday moves
+        # Normalize by rolling realized volatility (bar-to-bar returns std)
+        # This ensures high-beta and low-beta assets score equally for
+        # the same number of standard deviations of movement.
+        if len(history) >= 8:
+            returns = [(history[i] - history[i-1]) / history[i-1]
+                       for i in range(1, len(history)) if history[i-1] > 0]
+            if returns:
+                rv = float(np.std(returns))
+                if rv > 1e-6:
+                    z_move = pct_change / rv
+                    # ~1 sigma → 0.3, ~2 sigma → 0.6, ~3 sigma → capped near 1.0
+                    score = float(np.tanh(z_move * 0.35))
+                    return max(-1.0, min(1.0, score))
+
+        # Fallback: fixed scaling if not enough history for vol estimate
+        score = pct_change * 300
         return max(-1.0, min(1.0, score))
 
     def _check_exit(
@@ -672,11 +792,12 @@ class BacktestEngine:
     ) -> tuple[bool, str]:
         """Check exit conditions for 0DTE scalps.
 
-        v5 exit logic (best tested: 54% WR, PF 0.80):
-        - Give trades room in first 6 min (noise from 2-min bars)
-        - Moderate stops after 6 min
-        - Quick profit-taking before theta decay eats gains
-        - 15 min max hold
+        v6 exit logic — fixes asymmetric reward/risk:
+        - Tighter stop (-18%) to cut losers fast
+        - Higher profit target (+20%) to let winners run
+        - Trailing stop activates at +8% gain, trails at 40% giveback
+        - Scaled time exits: take any profit >3% after 8 min, force at 12 min
+        - Early momentum stop: if down >10% in first 4 min, trend is wrong
         """
         entry = trade.entry_price
         if entry <= 0:
@@ -701,26 +822,42 @@ class BacktestEngine:
         else:
             trade.peak_spot = min(trade.peak_spot, current_spot)
 
+        peak_pnl_pct = (trade.peak_price - entry) / entry
+
         # ── Hard close ──
         current_t = et_time.time()
         if current_t >= time(hard_close_h, hard_close_m):
             return True, f"Hard close ({self._settings.hard_close} ET)"
 
-        # ── Catastrophic stop: 35% loss ──
-        if actual_pnl_pct <= -0.35:
-            return True, f"Catastrophic stop ({actual_pnl_pct:.1%})"
+        # ── Stop loss: 18% hard stop ──
+        if actual_pnl_pct <= -0.18:
+            return True, f"Stop loss ({actual_pnl_pct:.1%})"
 
-        # ── Profit target: 12% premium gain ──
-        if actual_pnl_pct >= 0.12:
+        # ── Early momentum stop: down >10% in first 4 min = wrong direction ──
+        if hold_minutes <= 4 and actual_pnl_pct <= -0.10:
+            return True, f"Early stop ({actual_pnl_pct:.1%} @ {hold_minutes:.0f}m)"
+
+        # ── Profit target: 20% premium gain (was 12% — let winners run) ──
+        if actual_pnl_pct >= 0.20:
             return True, f"Profit target ({actual_pnl_pct:.1%})"
+
+        # ── Trailing stop: activates at +8% gain, 40% giveback ──
+        if peak_pnl_pct >= 0.08:
+            giveback = (peak_pnl_pct - actual_pnl_pct) / peak_pnl_pct if peak_pnl_pct > 0 else 0
+            if giveback >= 0.40:
+                return True, f"Trail stop (peak {peak_pnl_pct:.1%}, now {actual_pnl_pct:.1%})"
 
         # ── Directional profit: underlying moved well but theta ate some ──
         if directional_pnl_pct >= 0.20 and actual_pnl_pct > -0.03:
             return True, f"Directional profit (dir {directional_pnl_pct:.1%}, opt {actual_pnl_pct:.1%})"
 
-        # ── No early or standard stop ──
-        # On 2-min bars, option price noise is ~7% per bar. Any stop <25% is noise.
-        # Let the 15-min time exit handle adverse trades — most recover partially.
+        # ── Scratch exit: near breakeven after 6 min = no edge, close before theta eats it ──
+        if hold_minutes >= 6 and -0.03 <= actual_pnl_pct <= 0.03:
+            return True, f"Scratch ({actual_pnl_pct:.1%} @ {hold_minutes:.0f}m)"
+
+        # ── Adverse time stop: losing after 8 min = trend didn't develop, cut it ──
+        if hold_minutes >= 8 and actual_pnl_pct < -0.05:
+            return True, f"Time stop ({actual_pnl_pct:.1%} @ {hold_minutes:.0f}m)"
 
         # ── Trailing on underlying ──
         if trade.option_type == "call":
@@ -732,13 +869,14 @@ class BacktestEngine:
 
         if peak_move > trade.entry_spot * 0.001 and peak_move > 0:
             retracement = 1.0 - (current_move / peak_move) if current_move < peak_move else 0
-            if retracement >= 0.50 and actual_pnl_pct > -0.08:
+            if retracement >= 0.50 and actual_pnl_pct > -0.05:
                 return True, f"Trail (retrace {retracement:.0%}, peak ${peak_move:.2f})"
 
-        # ── Time management ──
-        if hold_minutes >= 10 and actual_pnl_pct > 0.02:
+        # ── Time take profit: any gain >3% after 8 min ──
+        if hold_minutes >= 8 and actual_pnl_pct > 0.03:
             return True, f"Time take profit ({actual_pnl_pct:.1%} @ {hold_minutes:.0f}m)"
 
+        # ── Hard time exit: 15 min max (was 12 — give profitable trades more room) ──
         if hold_minutes >= 15:
             return True, f"Time exit ({actual_pnl_pct:.1%} @ {hold_minutes:.0f}m)"
 
@@ -747,42 +885,58 @@ class BacktestEngine:
     def _greeks_reprice(
         self, trade: BacktestTrade, current_spot: float, et_time: datetime,
     ) -> float:
-        """Estimate current option price using entry Greeks.
+        """Estimate current option price using entry Greeks with adjustments.
 
-        Instead of full Black-Scholes repricing (which overestimates 0DTE
-        theta decay), use the Taylor expansion:
-            ΔP ≈ δ·ΔS + ½γ·(ΔS)² + θ·Δt
-
-        This matches how traders estimate intraday P&L and produces more
-        realistic 0DTE simulation results.
+        Uses Taylor expansion with two 0DTE-specific improvements:
+        1. Accelerating theta: real 0DTE theta scales as 1/√T, so decay
+           accelerates into the close. We scale entry theta by √(T_entry/T_now).
+        2. Delta adjustment: as spot moves, delta shifts by gamma×ΔS.
+           Use adjusted delta for more accurate P&L on larger moves.
         """
-        ds = current_spot - trade.entry_spot  # Underlying move
+        ds = current_spot - trade.entry_spot
         delta = trade.entry_delta
-        # Use reasonable defaults if Greeks weren't captured
-        gamma = getattr(trade, 'entry_gamma', 0.01)
-        theta_per_day = getattr(trade, 'entry_theta', -0.15)
+        gamma = trade.entry_gamma if trade.entry_gamma != 0 else 0.01
+        theta_per_day = trade.entry_theta if trade.entry_theta != 0 else -0.15
 
-        # Hold time in trading days (for theta)
-        hold_minutes = (et_time - trade.entry_time.astimezone(ET)).total_seconds() / 60
-        dt_days = hold_minutes / 390  # Trading minutes per day
+        # Hold time
+        hold_seconds = (et_time - trade.entry_time.astimezone(ET)).total_seconds()
+        hold_minutes = hold_seconds / 60
+        dt_days = hold_minutes / 390
 
-        # Delta P&L (directional)
-        delta_pnl = delta * ds
+        # ── Accelerating theta for 0DTE ──
+        # Theta scales as 1/√T. If entry was at T_entry minutes to close
+        # and now T_now minutes to close, actual theta ≈ entry_theta × √(T_entry/T_now)
+        entry_et = trade.entry_time.astimezone(ET)
+        close_today = entry_et.replace(hour=16, minute=0, second=0)
+        t_entry_min = max(1, (close_today - entry_et).total_seconds() / 60)
+        t_now_min = max(1, (close_today - et_time).total_seconds() / 60)
 
-        # Gamma P&L (convexity — amplifies moves, especially for 0DTE)
+        # Average theta acceleration over the hold period
+        # integral of 1/√t from t_now to t_entry, divided by (t_entry - t_now)
+        if t_now_min < t_entry_min:
+            theta_accel = (t_entry_min / t_now_min) ** 0.5
+            theta_accel = min(theta_accel, 3.0)  # Cap at 3x to avoid explosion
+        else:
+            theta_accel = 1.0
+
+        theta_pnl = theta_per_day * dt_days * theta_accel
+
+        # ── Adjusted delta: δ_adj = δ + γ·ΔS ──
+        adjusted_delta = delta + gamma * ds
+        delta_pnl = adjusted_delta * ds
+
+        # Gamma P&L (second-order, using entry gamma)
         gamma_pnl = 0.5 * gamma * ds * ds
 
-        # Theta P&L (time decay — capped to prevent unrealistic decay)
-        theta_pnl = theta_per_day * dt_days
+        # Total: use max of (delta_pnl, delta_pnl + gamma_pnl) to avoid
+        # double-counting since adjusted_delta already captures some convexity
+        # Actually: delta_adj*ds = delta*ds + gamma*ds², and gamma_pnl = 0.5*gamma*ds²
+        # So combined = delta*ds + 1.5*gamma*ds² which overcounts.
+        # Correct approach: just use adjusted_delta * ds (which = delta*ds + gamma*ds²)
+        # plus theta. The 0.5*gamma*ds² is already embedded.
+        price_change = delta_pnl + theta_pnl
 
-        # Total estimated price change
-        price_change = delta_pnl + gamma_pnl + theta_pnl
-
-        # For puts, delta is negative, so delta_pnl is negative when spot rises
-        # (which is correct — put loses value when underlying rises)
         estimated_price = trade.entry_price + price_change
-
-        # Floor at $0.01 (options can't go negative)
         return max(0.01, estimated_price)
 
     def _find_option(

@@ -547,6 +547,37 @@
             </div>
         </div>
 
+        <!-- ── Row 3b: GEX Levels + Order Flow ────── -->
+        <div class="grid grid-middle" style="margin-top:16px;">
+            <!-- GEX Levels Panel -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">GEX Levels</span>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <div id="gexTabs" class="tabs" style="border-bottom:none;">
+                            {% for sym in underlyings %}
+                            <div class="tab {% if loop.first %}active{% endif %}" data-sym="{{ sym }}" onclick="selectGEX('{{ sym }}', this)">{{ sym }}</div>
+                            {% endfor %}
+                        </div>
+                        <span class="card-badge" id="gexRegimeBadge">—</span>
+                    </div>
+                </div>
+                <div class="card-body" id="gexPanel">
+                    <div class="empty-state">Loading GEX data...</div>
+                </div>
+            </div>
+            <!-- Order Flow Panel -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Order Flow</span>
+                    <span class="card-badge" id="flowDirectionBadge">—</span>
+                </div>
+                <div class="card-body" id="flowPanel">
+                    <div class="empty-state">Loading flow data...</div>
+                </div>
+            </div>
+        </div>
+
         <!-- ── Row 4: Options Chain ────────────────── -->
         <div class="grid grid-bottom">
             <div class="card">
@@ -952,6 +983,226 @@
         $('tradesContainer').innerHTML = html;
     }
 
+    // ── State: GEX ────────────────────────────────────────
+    let currentGEX = '{{ underlyings[0] if underlyings else "SPY" }}';
+
+    function selectGEX(sym, el) {
+        currentGEX = sym;
+        document.querySelectorAll('#gexTabs .tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+        refreshGEX(sym);
+    }
+
+    // ── Render: GEX Levels ──────────────────────────────────
+    async function refreshGEX(sym) {
+        sym = sym || currentGEX;
+        const d = await api('gex/' + sym);
+        if (!d || !d.regime) {
+            $('gexPanel').innerHTML = '<div class="empty-state">No GEX data available</div>';
+            return;
+        }
+        const regimeColors = {
+            'positive': 'badge-green', 'negative': 'badge-red', 'neutral': 'badge-blue'
+        };
+        const badge = $('gexRegimeBadge');
+        badge.textContent = d.regime.toUpperCase();
+        badge.className = 'card-badge ' + (regimeColors[d.regime] || 'badge-blue');
+
+        // Format large GEX numbers
+        function fmtGex(n) {
+            const abs = Math.abs(n);
+            if (abs >= 1e9) return (n/1e9).toFixed(1) + 'B';
+            if (abs >= 1e6) return (n/1e6).toFixed(1) + 'M';
+            if (abs >= 1e3) return (n/1e3).toFixed(0) + 'K';
+            return n.toFixed(0);
+        }
+
+        let html = `
+            <div style="display:flex;gap:16px;margin-bottom:12px;">
+                <div style="flex:1;text-align:center;padding:8px;background:var(--bg-secondary);border-radius:6px;">
+                    <div style="font-size:11px;color:var(--text-secondary);text-transform:uppercase;">Call Wall</div>
+                    <div style="font-size:18px;font-weight:700;color:var(--red);">${fmt(d.call_wall)}</div>
+                    <div style="font-size:10px;color:var(--text-muted);">Resistance</div>
+                </div>
+                <div style="flex:1;text-align:center;padding:8px;background:var(--bg-secondary);border-radius:6px;">
+                    <div style="font-size:11px;color:var(--text-secondary);text-transform:uppercase;">Flip Point</div>
+                    <div style="font-size:18px;font-weight:700;color:var(--yellow);">${fmt(d.flip_point)}</div>
+                    <div style="font-size:10px;color:var(--text-muted);">Regime Transition</div>
+                </div>
+                <div style="flex:1;text-align:center;padding:8px;background:var(--bg-secondary);border-radius:6px;">
+                    <div style="font-size:11px;color:var(--text-secondary);text-transform:uppercase;">Put Wall</div>
+                    <div style="font-size:18px;font-weight:700;color:var(--green);">${fmt(d.put_wall)}</div>
+                    <div style="font-size:10px;color:var(--text-muted);">Support</div>
+                </div>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Total GEX</span>
+                <span class="quant-metric-value ${d.total_gex > 0 ? 'text-green' : 'text-red'}">${fmtGex(d.total_gex)}</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Nearest Support</span>
+                <span class="quant-metric-value text-green">${fmt(d.nearest_support)}</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Nearest Resistance</span>
+                <span class="quant-metric-value text-red">${fmt(d.nearest_resistance)}</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Score (Call)</span>
+                <span class="quant-metric-value ${d.score_call > 0 ? 'text-green' : d.score_call < 0 ? 'text-red' : ''}">${d.score_call >= 0 ? '+' : ''}${fmt(d.score_call, 3)}</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Score (Put)</span>
+                <span class="quant-metric-value ${d.score_put > 0 ? 'text-green' : d.score_put < 0 ? 'text-red' : ''}">${d.score_put >= 0 ? '+' : ''}${fmt(d.score_put, 3)}</span>
+            </div>`;
+
+        // GEX levels bar chart (top 10 by absolute value)
+        if (d.levels && d.levels.length) {
+            const sorted = [...d.levels].sort((a,b) => Math.abs(b.gex_value) - Math.abs(a.gex_value)).slice(0, 10);
+            const maxAbs = Math.max(...sorted.map(l => Math.abs(l.gex_value)));
+            html += '<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">';
+            html += '<div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Top GEX Strikes</div>';
+            for (const l of sorted) {
+                const pct = Math.abs(l.gex_value) / maxAbs * 100;
+                const color = l.gex_value > 0 ? 'var(--green)' : 'var(--red)';
+                const label = l.is_call_wall ? ' CW' : l.is_put_wall ? ' PW' : '';
+                html += `<div style="display:flex;align-items:center;gap:8px;margin:3px 0;">
+                    <span style="width:50px;text-align:right;font-size:11px;font-weight:600;">${l.strike}${label}</span>
+                    <div style="flex:1;height:12px;background:var(--bg-secondary);border-radius:2px;overflow:hidden;">
+                        <div style="height:100%;width:${pct}%;background:${color};border-radius:2px;"></div>
+                    </div>
+                    <span style="width:50px;font-size:10px;color:var(--text-secondary);">${fmtGex(l.gex_value)}</span>
+                </div>`;
+            }
+            html += '</div>';
+        }
+
+        $('gexPanel').innerHTML = html;
+    }
+
+    // ── Render: Order Flow ──────────────────────────────────
+    async function refreshFlow() {
+        const d = await api('flow');
+        if (!d || d.put_call_ratio === undefined) {
+            $('flowPanel').innerHTML = '<div class="empty-state">No flow data available</div>';
+            return;
+        }
+
+        // Direction badge
+        const badge = $('flowDirectionBadge');
+        if (d.flow_direction > 0.1) {
+            badge.textContent = 'BULLISH';
+            badge.className = 'card-badge badge-green';
+        } else if (d.flow_direction < -0.1) {
+            badge.textContent = 'BEARISH';
+            badge.className = 'card-badge badge-red';
+        } else {
+            badge.textContent = 'NEUTRAL';
+            badge.className = 'card-badge badge-blue';
+        }
+
+        // P/C ratio gauge
+        const pcrPct = Math.min(100, (d.put_call_ratio / 2.0) * 100);
+        const pcrColor = d.put_call_ratio > 1.2 ? 'var(--red)' : d.put_call_ratio < 0.7 ? 'var(--green)' : 'var(--blue)';
+
+        // Delta exposure gauge (-1 to +1 mapped to 0-100%)
+        const deltaExpPct = ((d.net_delta_exposure + 1) / 2) * 100;
+
+        const totalPrem = d.call_premium + d.put_premium;
+        const callPct = totalPrem > 0 ? (d.call_premium / totalPrem * 100) : 50;
+
+        let html = `
+            <div class="quant-metric">
+                <span class="quant-metric-label">Put/Call Ratio</span>
+                <span class="quant-metric-value" style="color:${pcrColor};">${fmt(d.put_call_ratio, 3)}</span>
+            </div>
+            <div class="gauge" style="margin:4px 0 10px;">
+                <div class="gauge-bar">
+                    <div class="gauge-fill" style="width:${pcrPct}%;background:${pcrColor};"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:2px;">
+                    <span>Bullish &lt;0.7</span><span>Bearish &gt;1.2</span>
+                </div>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Flow Direction</span>
+                <span class="quant-metric-value ${d.flow_direction > 0 ? 'text-green' : d.flow_direction < 0 ? 'text-red' : ''}">${d.flow_direction >= 0 ? '+' : ''}${fmt(d.flow_direction, 3)}</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Net Delta Exposure</span>
+                <span class="quant-metric-value ${d.net_delta_exposure > 0 ? 'text-green' : d.net_delta_exposure < 0 ? 'text-red' : ''}">${d.net_delta_exposure >= 0 ? '+' : ''}${fmt(d.net_delta_exposure, 4)}</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">OI Skew (C-P)</span>
+                <span class="quant-metric-value ${d.oi_skew > 0 ? 'text-green' : d.oi_skew < 0 ? 'text-red' : ''}">${d.oi_skew >= 0 ? '+' : ''}${fmt(d.oi_skew, 4)}</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Smart Money Bias</span>
+                <span class="quant-metric-value ${d.smart_money_bias > 0 ? 'text-green' : d.smart_money_bias < 0 ? 'text-red' : ''}">${d.smart_money_bias >= 0 ? '+' : ''}${fmt(d.smart_money_bias, 3)}</span>
+            </div>
+            <div style="margin:10px 0;border-top:1px solid var(--border);padding-top:10px;">
+                <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Premium Split</div>
+                <div style="display:flex;height:20px;border-radius:4px;overflow:hidden;">
+                    <div style="width:${callPct}%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;">
+                        C $${(d.call_premium/1000).toFixed(0)}K
+                    </div>
+                    <div style="width:${100-callPct}%;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;">
+                        P $${(d.put_premium/1000).toFixed(0)}K
+                    </div>
+                </div>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Call Volume</span>
+                <span class="quant-metric-value">${d.call_volume.toLocaleString()}</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Put Volume</span>
+                <span class="quant-metric-value">${d.put_volume.toLocaleString()}</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Score (Call)</span>
+                <span class="quant-metric-value ${d.score_call > 0 ? 'text-green' : d.score_call < 0 ? 'text-red' : ''}">${d.score_call >= 0 ? '+' : ''}${fmt(d.score_call, 3)}</span>
+            </div>
+            <div class="quant-metric">
+                <span class="quant-metric-label">Score (Put)</span>
+                <span class="quant-metric-value ${d.score_put > 0 ? 'text-green' : d.score_put < 0 ? 'text-red' : ''}">${d.score_put >= 0 ? '+' : ''}${fmt(d.score_put, 3)}</span>
+            </div>`;
+
+        // Extreme reading alert
+        if (d.extreme_reading) {
+            const isExtBearish = d.extreme_reading === 'extreme_bearish';
+            html += `<div style="margin-top:8px;padding:8px;border-radius:6px;background:${isExtBearish ? 'var(--red-bg)' : 'var(--green-bg)'};">
+                <span style="font-size:12px;font-weight:600;color:${isExtBearish ? 'var(--red)' : 'var(--green)'};">
+                    ${isExtBearish ? 'EXTREME BEARISH' : 'EXTREME BULLISH'} — Contrarian signal
+                </span>
+            </div>`;
+        }
+
+        // Unusual activity table
+        if (d.unusual_activity && d.unusual_activity.length) {
+            html += `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;">
+                <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Unusual Activity</div>
+                <table style="font-size:11px;"><thead><tr>
+                    <th style="padding:4px 6px;">Type</th><th style="padding:4px 6px;">Strike</th>
+                    <th style="padding:4px 6px;">Vol/OI</th><th style="padding:4px 6px;">Premium</th>
+                    <th style="padding:4px 6px;">Bias</th>
+                </tr></thead><tbody>`;
+            for (const u of d.unusual_activity) {
+                const sentColor = u.sentiment === 'bullish' ? 'text-green' : 'text-red';
+                html += `<tr>
+                    <td style="padding:4px 6px;"><span class="badge badge-${u.trade_type === 'sweep' ? 'red' : u.trade_type === 'block' ? 'yellow' : 'blue'}" style="font-size:9px;">${u.trade_type}</span></td>
+                    <td style="padding:4px 6px;">${u.option_type.toUpperCase()} $${u.strike}</td>
+                    <td style="padding:4px 6px;">${u.vol_oi_ratio}x</td>
+                    <td style="padding:4px 6px;">$${(u.premium/1000).toFixed(0)}K</td>
+                    <td style="padding:4px 6px;" class="${sentColor}">${u.sentiment}</td>
+                </tr>`;
+            }
+            html += '</tbody></table></div>';
+        }
+
+        $('flowPanel').innerHTML = html;
+    }
+
     // ── Loading Indicator ──────────────────────────────────
     function showLoading() { $('refreshBar').classList.add('loading'); }
     function hideLoading() {
@@ -978,6 +1229,8 @@
             refreshVIX(),
             refreshChain(),
             refreshTrades(),
+            refreshGEX(),
+            refreshFlow(),
         ]);
     }
 

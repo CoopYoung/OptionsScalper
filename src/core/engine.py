@@ -860,7 +860,7 @@ class TradingEngine:
                     self._macro.update(),
                     self._internals.update(),
                     self._update_gex(),
-                    self._flow.update(),
+                    self._update_flow(),
                     self._update_optionsai(),
                     return_exceptions=True,
                 )
@@ -882,11 +882,23 @@ class TradingEngine:
             await asyncio.sleep(self._settings.quant_loop_seconds)
 
     async def _update_gex(self) -> None:
-        """Update GEX for all underlyings."""
+        """Update GEX and chain IV for all underlyings."""
         for underlying in self._settings.underlying_list:
             chain = self._chain_mgr.get_chain(underlying)
             price = self._last_prices.get(underlying, Decimal("0"))
             await self._gex.update(underlying, chain, float(price))
+            # Piggyback: update per-underlying chain IV percentile
+            if chain:
+                self._vix.update_chain_iv(underlying, chain)
+
+    async def _update_flow(self) -> None:
+        """Update flow for all underlyings, passing aggregated chain data."""
+        all_chains = []
+        for underlying in self._settings.underlying_list:
+            chain = self._chain_mgr.get_chain(underlying)
+            if chain:
+                all_chains.extend(chain)
+        await self._flow.update(all_chains)
 
     async def _update_optionsai(self) -> None:
         """Update OptionsAI signals for all underlyings."""
