@@ -249,7 +249,13 @@ class TradingEngine:
                 break
             await asyncio.sleep(10)
 
-        # Stop all loops
+        # ── CRITICAL: Close all positions BEFORE stopping streams ──
+        # Previous bug: stream was killed first, then _end_of_day tried
+        # to close positions with no connection → positions expired worthless.
+        logger.info("Closing all positions before stopping streams")
+        await self._close_all_positions("End of day (pre-stream-close)")
+
+        # Now stop all loops and streams
         self._running = False  # Temporarily — signals loops to exit
         for task in loop_tasks:
             task.cancel()
@@ -263,11 +269,16 @@ class TradingEngine:
         self._running = True
 
     async def _end_of_day(self) -> None:
-        """End-of-day cleanup: close positions, persist state, send analytics."""
-        logger.info("End of day — closing all positions")
+        """End-of-day cleanup: close any remaining positions, persist state."""
+        logger.info("End of day cleanup")
 
-        # Close any remaining positions
-        await self._close_all_positions("End of day")
+        # Safety net: close anything that survived the pre-stream close
+        if self._open_positions:
+            logger.warning(
+                "SAFETY NET: %d positions still open after stream close!",
+                len(self._open_positions),
+            )
+            await self._close_all_positions("End of day safety net")
 
         # Persist state
         self._persist_state()

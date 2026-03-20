@@ -79,9 +79,8 @@ class ExitManager:
         self._max_hold_profitable = 15   # Exit winners before theta eats gains
         self._max_hold_absolute = 15     # Hard limit — 0DTE theta is exponential past this
 
-        # Catastrophic stop (always active, never adjusted)
-        # Backtest showed any stop <25% is noise. 35% catches real disasters.
-        self._catastrophic_stop_pct = 0.35
+        # Catastrophic stop — uses config stop loss as the hard floor
+        self._catastrophic_stop_pct = settings.sl_stop_loss_pct
 
     def evaluate(self, ctx: ExitContext, now: Optional[datetime] = None) -> ExitDecision:
         """Evaluate all exit conditions for a position.

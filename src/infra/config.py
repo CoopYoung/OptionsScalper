@@ -68,7 +68,7 @@ class Settings(BaseSettings):
 
     # ── 0DTE Strategy Parameters ────────────────────────────────
     target_delta: float = 0.30        # Strike selection: buy ~30 delta options
-    max_contracts_per_trade: int = 10
+    max_contracts_per_trade: int = 5
     min_premium: float = 0.50         # Don't buy options < $0.50
     max_premium: float = 5.00         # Don't buy options > $5.00
     min_spread_ratio: float = 0.90    # bid/ask ratio >= 0.90 (tight spread)
@@ -79,10 +79,10 @@ class Settings(BaseSettings):
     hard_close: str = "15:15"         # Close all 15 min before 3:30 cutoff
 
     # ── Risk ────────────────────────────────────────────────────
-    kelly_fraction: Decimal = Field(default=Decimal("0.20"))
-    max_position_pct: Decimal = Field(default=Decimal("0.05"))
-    max_portfolio_exposure: Decimal = Field(default=Decimal("0.30"))
-    daily_drawdown_halt: Decimal = Field(default=Decimal("0.08"))
+    kelly_fraction: Decimal = Field(default=Decimal("0.15"))
+    max_position_pct: Decimal = Field(default=Decimal("0.03"))
+    max_portfolio_exposure: Decimal = Field(default=Decimal("0.10"))
+    daily_drawdown_halt: Decimal = Field(default=Decimal("0.05"))
     signal_confidence_threshold: int = 55
     min_edge: Decimal = Field(default=Decimal("0.03"))
 
@@ -97,9 +97,9 @@ class Settings(BaseSettings):
     max_same_strike: int = 1
 
     # ── Profit-taking / Stop-loss ───────────────────────────────
-    pt_profit_target_pct: float = 0.50   # Take profit at 50% premium gain
-    sl_stop_loss_pct: float = 0.30       # Stop loss at 30% premium loss
-    sl_trailing_pct: float = 0.20        # Trail 20% below peak premium
+    pt_profit_target_pct: float = 0.20   # Take profit at 20% premium gain
+    sl_stop_loss_pct: float = 0.18       # Stop loss at 18% premium loss
+    sl_trailing_pct: float = 0.15        # Trail 15% below peak premium
     pt_time_exit_minutes: int = 15       # Exit all positions 15 min before cutoff
 
     # ── Quant Layer ─────────────────────────────────────────────
