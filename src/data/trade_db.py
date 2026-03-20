@@ -60,6 +60,7 @@ class TradeDB:
 
             CREATE INDEX IF NOT EXISTS idx_trades_underlying ON trades(underlying);
             CREATE INDEX IF NOT EXISTS idx_trades_entry_time ON trades(entry_time);
+            CREATE INDEX IF NOT EXISTS idx_trades_exit_time ON trades(exit_time);
 
             CREATE TABLE IF NOT EXISTS portfolio_state (
                 id                  INTEGER PRIMARY KEY CHECK (id = 1),
@@ -90,6 +91,33 @@ class TradeDB:
             VALUES (1, '10000', '0', '10000', 0)
         """)
         self._conn.commit()
+        self._migrate_analytics_columns()
+
+    def _migrate_analytics_columns(self) -> None:
+        """Add analytics columns to trades table (migration-safe)."""
+        assert self._conn is not None
+        new_columns = [
+            ("hold_seconds", "INTEGER DEFAULT 0"),
+            ("max_favorable_pnl", "TEXT DEFAULT '0'"),
+            ("max_adverse_pnl", "TEXT DEFAULT '0'"),
+            ("underlying_move_pct", "REAL DEFAULT 0"),
+            ("slippage", "REAL DEFAULT 0"),
+        ]
+        for col_name, col_type in new_columns:
+            try:
+                self._conn.execute(f"ALTER TABLE trades ADD COLUMN {col_name} {col_type}")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+        # Daily reports table for analytics
+        self._conn.execute("""
+            CREATE TABLE IF NOT EXISTS daily_reports (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                trade_date  TEXT    NOT NULL UNIQUE,
+                report_json TEXT    NOT NULL,
+                created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+            )
+        """)
+        self._conn.commit()
 
     def record_trade_open(
         self, underlying: str, contract_symbol: str, option_type: str,
@@ -115,14 +143,23 @@ class TradeDB:
     def record_trade_close(
         self, contract_symbol: str, exit_premium: Decimal,
         pnl: Decimal, exit_reason: str = "",
+        hold_seconds: int = 0,
+        max_favorable_pnl: Decimal = Decimal("0"),
+        max_adverse_pnl: Decimal = Decimal("0"),
+        underlying_move_pct: float = 0.0,
+        slippage: float = 0.0,
     ) -> None:
         assert self._conn is not None
         now = datetime.now(timezone.utc).isoformat()
         self._conn.execute(
-            """UPDATE trades SET exit_premium=?, exit_time=?, pnl=?, exit_reason=?
+            """UPDATE trades SET exit_premium=?, exit_time=?, pnl=?, exit_reason=?,
+               hold_seconds=?, max_favorable_pnl=?, max_adverse_pnl=?,
+               underlying_move_pct=?, slippage=?
                WHERE contract_symbol=? AND exit_time IS NULL
                ORDER BY entry_time DESC LIMIT 1""",
-            (str(exit_premium), now, str(pnl), exit_reason, contract_symbol),
+            (str(exit_premium), now, str(pnl), exit_reason,
+             hold_seconds, str(max_favorable_pnl), str(max_adverse_pnl),
+             underlying_move_pct, slippage, contract_symbol),
         )
         self._conn.commit()
 

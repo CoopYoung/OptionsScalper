@@ -30,8 +30,8 @@ def main() -> None:
                         help="Bar interval (default: 2m)")
     parser.add_argument("--capital", type=float, default=100_000,
                         help="Initial capital (default: 100000)")
-    parser.add_argument("--slippage", type=float, default=0.02,
-                        help="Slippage percentage (default: 0.02 = 2%%)")
+    parser.add_argument("--slippage", type=float, default=0.005,
+                        help="Slippage percentage (default: 0.005 = 0.5%%)")
     parser.add_argument("--output", type=str, default=None,
                         help="Output JSON file for results")
     parser.add_argument("--verbose", "-v", action="store_true",
