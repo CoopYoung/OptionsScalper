@@ -228,7 +228,12 @@ class AlpacaClient:
             self._trading_client.cancel_order_by_id(order_id)
             logger.info("Cancelled order %s", order_id)
             return True
-        except Exception:
+        except Exception as exc:
+            msg = str(exc).lower()
+            # Already filled/cancelled — not a real error, just a race condition
+            if "filled" in msg or "cancelled" in msg or "canceled" in msg:
+                logger.debug("Order %s already terminal: %s", order_id, msg)
+                return False
             logger.exception("Failed to cancel order %s", order_id)
             return False
 
