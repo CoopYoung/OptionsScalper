@@ -279,16 +279,28 @@ class OptionsRiskManager:
     # ── Position Tracking ─────────────────────────────────────
 
     def record_open(self, symbol: str, underlying: str, qty: int, premium: Decimal, contract: OptionsContract = None) -> None:
-        self._open_positions[symbol] = {
-            "underlying": underlying,
-            "qty": qty,
-            "entry_premium": premium,
-            "notional": float(premium) * 100 * qty,
-            "contract": contract,
-        }
-        self._positions_per_underlying[underlying] = (
-            self._positions_per_underlying.get(underlying, 0) + 1
-        )
+        existing = self._open_positions.get(symbol)
+        if existing:
+            # Aggregating into existing position — update notional and qty
+            self._open_positions[symbol] = {
+                "underlying": underlying,
+                "qty": qty,  # Already aggregated total from engine
+                "entry_premium": premium,  # Already averaged from engine
+                "notional": float(premium) * 100 * qty,
+                "contract": contract or existing.get("contract"),
+            }
+            # Don't increment positions_per_underlying (same position)
+        else:
+            self._open_positions[symbol] = {
+                "underlying": underlying,
+                "qty": qty,
+                "entry_premium": premium,
+                "notional": float(premium) * 100 * qty,
+                "contract": contract,
+            }
+            self._positions_per_underlying[underlying] = (
+                self._positions_per_underlying.get(underlying, 0) + 1
+            )
         if contract:
             self._portfolio_greeks.add(contract, qty)
         self._trade_count_today += 1

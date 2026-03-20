@@ -788,6 +788,28 @@ class TradingEngine:
             underlying = info["underlying"]
             entry_spot = float(self._last_prices.get(underlying, Decimal("0")))
 
+            # CRITICAL: Aggregate if we already have this symbol, don't overwrite
+            existing = self._open_positions.get(symbol)
+            if existing:
+                # Average the entry price, sum the quantity
+                old_qty = existing["qty"]
+                new_total_qty = old_qty + qty
+                old_cost = existing["entry_premium"] * old_qty
+                new_cost = filled_price * qty
+                avg_premium = (old_cost + new_cost) / new_total_qty
+                existing["qty"] = new_total_qty
+                existing["entry_premium"] = avg_premium
+                # Keep original entry time and spots
+                logger.info(
+                    "AGGREGATED: %s now %d contracts @ avg $%.2f",
+                    symbol, new_total_qty, float(avg_premium),
+                )
+                self._risk.record_open(
+                    symbol, underlying, new_total_qty, avg_premium,
+                    info.get("contract"),
+                )
+                return
+
             self._open_positions[symbol] = {
                 "underlying": underlying,
                 "option_type": info["option_type"],
@@ -976,6 +998,13 @@ class TradingEngine:
         price = self._last_prices.get(underlying)
         if not price:
             return
+
+        # CRITICAL: Don't enter if we already have any position in this underlying
+        # This prevents the accumulation bug where the bot kept buying the same
+        # contract every 15 seconds, accumulating 355 contracts ($96k exposure)
+        for pos in self._open_positions.values():
+            if pos.get("underlying") == underlying:
+                return
 
         # Compute technical signals from candle data
         candles = list(self._candles.get(underlying, []))
