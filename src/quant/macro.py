@@ -200,9 +200,53 @@ class MacroCalendar:
         return EventImpact.LOW
 
     def _check_known_schedule(self) -> list[MacroEvent]:
-        """Check if today matches known high-impact event patterns."""
-        # This is a static fallback — real implementation uses API
-        return []
+        """Check if today matches known high-impact event patterns.
+
+        Static fallback when the API is unavailable. Uses well-known
+        recurring release schedules for major US economic data.
+        """
+        now = datetime.now(timezone.utc)
+        today = now.date()
+        weekday = today.weekday()  # 0=Monday
+        day = today.day
+        month = today.month
+
+        events: list[MacroEvent] = []
+
+        # NFP: first Friday of the month, 8:30 AM ET (12:30 UTC)
+        if weekday == 4 and day <= 7:
+            events.append(MacroEvent(
+                name="Non-Farm Payrolls (NFP)",
+                timestamp=datetime(today.year, today.month, today.day, 12, 30, tzinfo=timezone.utc),
+                impact=EventImpact.HIGH,
+                description="Employment situation report — first Friday of month",
+            ))
+
+        # CPI: typically 2nd Tuesday-Thursday of the month, 8:30 AM ET (12:30 UTC)
+        if weekday in (1, 2, 3) and 10 <= day <= 15:
+            events.append(MacroEvent(
+                name="CPI (possible)",
+                timestamp=datetime(today.year, today.month, today.day, 12, 30, tzinfo=timezone.utc),
+                impact=EventImpact.MEDIUM,
+                description="Consumer Price Index — typically mid-month",
+            ))
+
+        # FOMC: 8 meetings/year, decision at 2:00 PM ET (18:00 UTC)
+        # Known 2025 FOMC dates (announcement day):
+        fomc_dates = [
+            (1, 29), (3, 19), (5, 7), (6, 18),
+            (7, 30), (9, 17), (11, 5), (12, 17),
+        ]
+        for m, d in fomc_dates:
+            if month == m and day == d:
+                events.append(MacroEvent(
+                    name="FOMC Interest Rate Decision",
+                    timestamp=datetime(today.year, today.month, today.day, 18, 0, tzinfo=timezone.utc),
+                    impact=EventImpact.HIGH,
+                    description="Federal Open Market Committee rate decision",
+                ))
+
+        return events
 
     @property
     def latest(self) -> Optional[MacroSignals]:

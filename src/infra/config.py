@@ -116,9 +116,7 @@ class Settings(BaseSettings):
     macro_blackout_minutes: int = 60     # Pause trading ±60 min around FOMC/CPI
 
     # ── Sentiment ───────────────────────────────────────────────
-    reddit_client_id: str = ""
-    reddit_client_secret: str = ""
-    reddit_user_agent: str = "zero-dte-scalper/1.0"
+    x_bearer_token: str = ""             # X/Twitter API v2 Bearer Token
     sentiment_weight: float = 0.05       # Weight in ensemble (0-1)
 
     # ── Technical Indicators ────────────────────────────────────
@@ -150,14 +148,15 @@ class Settings(BaseSettings):
     web_port: int = 8090
     web_enabled: bool = True
 
-    # ── Signal Ensemble Weights ─────────────────────────────────
-    weight_technical: float = 0.25
-    weight_tick_momentum: float = 0.20
-    weight_gex: float = 0.15
-    weight_flow: float = 0.15
-    weight_vix: float = 0.10
+    # ── Signal Ensemble Weights (must sum to 1.0) ───────────────
+    weight_technical: float = 0.22
+    weight_tick_momentum: float = 0.18
+    weight_gex: float = 0.13
+    weight_flow: float = 0.14
+    weight_vix: float = 0.08
     weight_internals: float = 0.10
     weight_sentiment: float = 0.05
+    weight_optionsai: float = 0.10
 
 
 def get_settings() -> Settings:

@@ -116,22 +116,36 @@ class MarketInternals:
         return 0
 
     async def _fetch_advance_decline(self) -> float:
-        """Fetch NYSE advance/decline ratio."""
+        """Estimate advance/decline ratio using sector ETF breadth.
+
+        Uses a basket of sector ETFs as a proxy for market breadth:
+        if most sectors are up, A/D ratio > 1.0.
+        """
         try:
             import yfinance as yf
 
-            # Use market breadth ETFs as proxy
-            adv = yf.Ticker("^ADV")
-            dec = yf.Ticker("^DECL")
+            # Sector ETFs as breadth proxy
+            sectors = ["XLK", "XLF", "XLV", "XLE", "XLI", "XLP", "XLY", "XLU", "XLB", "XLRE", "XLC"]
+            data = yf.download(sectors, period="2d", interval="1d", progress=False, threads=True)
 
-            adv_data = adv.history(period="1d", interval="1m")
-            dec_data = dec.history(period="1d", interval="1m")
+            if data.empty or len(data) < 2:
+                return 1.0
 
-            if not adv_data.empty and not dec_data.empty:
-                a = float(adv_data["Close"].iloc[-1])
-                d = float(dec_data["Close"].iloc[-1])
-                if d > 0:
-                    return a / d
+            closes = data["Close"]
+            if len(closes) < 2:
+                return 1.0
+
+            # Count how many sectors advanced vs declined today
+            prev = closes.iloc[-2]
+            curr = closes.iloc[-1]
+            changes = curr - prev
+
+            advancers = int((changes > 0).sum())
+            decliners = int((changes < 0).sum())
+
+            if decliners == 0:
+                return float(advancers) if advancers > 0 else 1.0
+            return advancers / decliners
 
         except Exception:
             logger.debug("A/D ratio fetch failed")

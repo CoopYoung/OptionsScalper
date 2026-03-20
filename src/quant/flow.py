@@ -59,7 +59,7 @@ class FlowAnalyzer:
         """Refresh flow data from all sources."""
         pcr = await self._fetch_put_call_ratio()
         chain_flow = self._analyze_chain_flow(chain) if chain else {}
-        unusual = await self._fetch_unusual_activity()
+        unusual = await self._fetch_unusual_activity(chain)
 
         call_vol = chain_flow.get("call_volume", 0)
         put_vol = chain_flow.get("put_volume", 0)
@@ -169,11 +169,66 @@ class FlowAnalyzer:
             "put_premium": put_premium,
         }
 
-    async def _fetch_unusual_activity(self) -> list[UnusualActivity]:
-        """Fetch unusual options activity (sweeps, blocks)."""
-        # Intrinio API or chain-based detection
-        # For now, detect from chain: vol/OI ratio > 3x is unusual
-        return []
+    async def _fetch_unusual_activity(self, chain: list = None) -> list[UnusualActivity]:
+        """Detect unusual options activity from chain data.
+
+        Flags contracts where volume/OI ratio > 3x (institutional sweep/block indicator).
+        """
+        if not chain:
+            return []
+
+        unusual: list[UnusualActivity] = []
+
+        for contract in chain:
+            vol = getattr(contract, 'volume', 0) or 0
+            oi = getattr(contract, 'open_interest', 0) or 0
+            if oi == 0 or vol < 100:
+                continue
+
+            vol_oi = vol / oi
+            if vol_oi < 3.0:
+                continue
+
+            mid = float(getattr(contract, 'mid', 0) or 0)
+            total_premium = vol * mid * 100
+
+            # Skip small premium trades
+            if total_premium < 50_000:
+                continue
+
+            # Determine sentiment from delta direction
+            delta = getattr(contract, 'delta', 0) or 0
+            opt_type = getattr(contract, 'option_type', 'call')
+            if opt_type == "call":
+                sentiment = "bullish" if delta > 0 else "bearish"
+            else:
+                sentiment = "bearish" if delta < 0 else "bullish"
+
+            # Classify trade type by vol/OI ratio
+            if vol_oi > 10:
+                trade_type = "sweep"
+            elif vol_oi > 5:
+                trade_type = "block"
+            else:
+                trade_type = "split"
+
+            unusual.append(UnusualActivity(
+                symbol=getattr(contract, 'symbol', ''),
+                underlying=getattr(contract, 'underlying', ''),
+                option_type=opt_type,
+                strike=float(getattr(contract, 'strike', 0)),
+                volume=vol,
+                open_interest=oi,
+                vol_oi_ratio=round(vol_oi, 2),
+                trade_type=trade_type,
+                sentiment=sentiment,
+                premium=round(total_premium, 2),
+                timestamp=datetime.now(timezone.utc),
+            ))
+
+        # Sort by premium descending — largest trades first
+        unusual.sort(key=lambda u: u.premium, reverse=True)
+        return unusual[:20]  # Top 20
 
     def _compute_smart_money_bias(self, unusual: list[UnusualActivity]) -> float:
         """Compute bias from institutional-sized unusual trades."""
