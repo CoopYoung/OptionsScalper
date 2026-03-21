@@ -1,136 +1,36 @@
 #!/usr/bin/env python3
-"""Hybrid Trader — Main entry point.
+"""Hybrid Trader — Entry point for API mode (fallback).
 
-This is what the cron job calls every 10-15 minutes during market hours.
-It's intentionally simple:
-
-1. Check if market is open
-2. Call Claude to analyze + trade
-3. Log the result
-4. Send Telegram notification
-5. Exit
-
-No loops, no state machines, no complex async. Each run is independent.
+Primary mode: Claude Code via run_cycle.sh (uses Max subscription, free)
+Fallback mode: Anthropic API via this script (pay-as-you-go)
 
 Usage:
-    # Single cycle (cron calls this)
-    python -m hybrid.main
+    # Claude Code mode (recommended — free with Max subscription):
+    ./hybrid/run_cycle.sh
 
-    # Continuous mode (runs its own loop — alternative to cron)
-    python -m hybrid.main --continuous
+    # API mode (if you prefer pay-as-you-go):
+    python -m hybrid --api
 
-    # Dry run (no trades, just analysis)
-    python -m hybrid.main --dry-run
-
-    # Daily summary
-    python -m hybrid.main --summary
+    # Daily summary (either mode):
+    python -m hybrid --summary
 """
 
 import argparse
 import logging
 import sys
-import time
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
-from hybrid.ai.analyst import run_analysis_cycle
-from hybrid.alerts.telegram import (
-    notify_cycle_result,
-    notify_daily_summary,
-    notify_error,
-    notify_shutdown,
-    notify_startup,
-)
+from hybrid.alerts.telegram import notify_daily_summary, notify_error
 from hybrid.broker import alpaca
-from hybrid.config import CRON_INTERVAL_MINUTES
-from hybrid.logs.audit import get_todays_trades, log_cycle
 from hybrid.risk.validator import get_daily_state, is_market_hours
 
-ET = ZoneInfo("America/New_York")
-
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("hybrid/trade_logs/hybrid.log"),
-    ],
 )
 logger = logging.getLogger("hybrid")
 
 
-def run_single_cycle() -> dict:
-    """Run a single analysis + trading cycle."""
-    logger.info("=" * 60)
-    logger.info("Starting analysis cycle at %s ET",
-                datetime.now(ET).strftime("%Y-%m-%d %H:%M:%S"))
-
-    if not is_market_hours():
-        logger.info("Market is closed — skipping cycle")
-        return {"action": "MARKET_CLOSED", "trades": [], "errors": []}
-
-    try:
-        result = run_analysis_cycle()
-
-        # Log to audit trail
-        log_cycle(result)
-
-        # Notify via Telegram
-        notify_cycle_result(result)
-
-        # Log summary
-        action = result.get("action", "UNKNOWN")
-        trades = result.get("trades", [])
-        cost = result.get("token_usage", {}).get("estimated_cost", 0)
-        logger.info(
-            "Cycle complete: action=%s trades=%d cost=$%.4f",
-            action, len(trades), cost,
-        )
-
-        return result
-
-    except Exception as e:
-        logger.exception("Cycle failed: %s", e)
-        notify_error(str(e))
-        return {"action": "ERROR", "trades": [], "errors": [str(e)]}
-
-
-def run_continuous() -> None:
-    """Run in continuous mode — own event loop instead of cron."""
-    logger.info("Starting continuous mode (interval: %d min)", CRON_INTERVAL_MINUTES)
-    notify_startup()
-
-    try:
-        while True:
-            now_et = datetime.now(ET)
-
-            if is_market_hours():
-                run_single_cycle()
-            else:
-                # Check if it's end of day — send summary
-                current_time = now_et.strftime("%H:%M")
-                if current_time == "16:05":
-                    send_daily_summary()
-
-                logger.info(
-                    "Market closed (%s ET) — sleeping %d min",
-                    current_time, CRON_INTERVAL_MINUTES,
-                )
-
-            # Sleep until next cycle
-            time.sleep(CRON_INTERVAL_MINUTES * 60)
-
-    except KeyboardInterrupt:
-        logger.info("Shutting down (keyboard interrupt)")
-        notify_shutdown("Keyboard interrupt")
-    except Exception as e:
-        logger.exception("Unexpected error: %s", e)
-        notify_shutdown(f"Error: {e}")
-        raise
-
-
-def send_daily_summary() -> None:
+def send_daily_summary():
     """Send end-of-day summary via Telegram."""
     try:
         daily_state = get_daily_state()
@@ -142,31 +42,52 @@ def send_daily_summary() -> None:
         logger.error("Failed to send daily summary: %s", e)
 
 
+def run_api_cycle():
+    """Run a cycle using the Anthropic API (pay-as-you-go)."""
+    if not is_market_hours():
+        logger.info("Market is closed — skipping cycle")
+        return
+
+    try:
+        from hybrid.ai.analyst import run_analysis_cycle
+        from hybrid.alerts.telegram import notify_cycle_result
+        from hybrid.logs.audit import log_cycle
+
+        result = run_analysis_cycle()
+        log_cycle(result)
+        notify_cycle_result(result)
+        logger.info("API cycle complete: %s", result.get("action"))
+    except Exception as e:
+        logger.exception("API cycle failed: %s", e)
+        notify_error(str(e))
+
+
 def main():
     parser = argparse.ArgumentParser(description="Hybrid Claude + Alpaca Trader")
-    parser.add_argument(
-        "--continuous", action="store_true",
-        help="Run in continuous mode instead of single cycle",
-    )
-    parser.add_argument(
-        "--summary", action="store_true",
-        help="Send daily summary and exit",
-    )
-    parser.add_argument(
-        "--dry-run", action="store_true",
-        help="Analyze but don't execute trades (not yet implemented)",
-    )
+    parser.add_argument("--summary", action="store_true", help="Send daily summary")
+    parser.add_argument("--api", action="store_true",
+                        help="Run single cycle via Anthropic API (costs money)")
     args = parser.parse_args()
 
     if args.summary:
         send_daily_summary()
-        return
-
-    if args.continuous:
-        run_continuous()
+    elif args.api:
+        run_api_cycle()
     else:
-        result = run_single_cycle()
-        sys.exit(0 if result.get("action") != "ERROR" else 1)
+        print("Hybrid Trader")
+        print("")
+        print("Recommended (free with Max subscription):")
+        print("  ./hybrid/run_cycle.sh          # Single cycle via Claude Code")
+        print("  ./hybrid/run_cycle.sh --force   # Run even outside market hours")
+        print("  ./hybrid/setup_cron.sh          # Install cron for auto-trading")
+        print("")
+        print("Fallback (pay-as-you-go API):")
+        print("  python -m hybrid --api          # Single cycle via Anthropic API")
+        print("")
+        print("Utilities:")
+        print("  python -m hybrid --summary      # Send daily Telegram summary")
+        print("  python -m hybrid.cli account    # Check account directly")
+        print("  python -m hybrid.cli positions  # Check positions directly")
 
 
 if __name__ == "__main__":
