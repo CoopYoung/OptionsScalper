@@ -1,77 +1,122 @@
-# OptionsScalper
+# OptionsScalper — Hybrid AI Options Trader
 
-Automated zero-DTE options scalping bot for SPY/QQQ/IWM on Alpaca. Uses a 7-factor quant signal ensemble with VIX regime detection, gamma exposure analysis, options flow, market sentiment, and macro calendar awareness.
+AI-powered options trading system that uses **Claude Code as the trading brain** and **Alpaca as the broker**. Claude analyzes the market, manages positions, and executes trades autonomously during market hours — with a Python validation layer that enforces hard risk rules before any order reaches the broker.
 
-## How It Works
+**Cost: $0 extra** — runs on your existing Claude Max subscription.
 
-The bot runs 3 concurrent async loops during market hours:
+## Architecture
 
-- **Fast loop (5s)** — Monitors open positions for exit conditions (profit target, stop loss, trailing stop, time-based close)
-- **Quant loop (30s)** — Refreshes market signals: VIX regime, GEX levels, options flow, market internals, sentiment, macro calendar
-- **Strategy loop (15s)** — Evaluates entry signals using a weighted ensemble of 7 factors, selects optimal strikes, and places orders through Alpaca
+```
+Cron (every 10 min)
+  └─ run_cycle.sh
+       └─ claude -p "trading prompt" --allowedTools "Bash(...)"
+            ├─ python3 -m hybrid.cli account         → account state
+            ├─ python3 -m hybrid.cli positions        → open P&L
+            ├─ python3 -m hybrid.cli quotes SPY QQQ   → real-time prices
+            ├─ python3 -m hybrid.cli chain SPY ...     → options chain + Greeks
+            ├─ python3 -m hybrid.cli validate buy ...  → risk check (dry run)
+            ├─ python3 -m hybrid.cli order buy ...     → validated execution
+            └─ Telegram alert                          → trade notification
+```
 
-### Signal Ensemble
+**Each cycle is stateless** — Claude reads fresh portfolio state from Alpaca every time. No position tracking dicts, no stale state, no accumulation bugs.
 
-| Factor | Weight | What It Measures |
-|--------|--------|------------------|
-| Technical | 25% | RSI, MACD, Bollinger Bands, volume delta |
-| Tick Momentum | 20% | Short-term price direction and acceleration |
-| GEX Regime | 15% | Dealer hedging flow — mean-reverting vs trending |
-| Options Flow | 15% | Put/call ratio, unusual activity, smart money |
-| VIX / IV | 10% | Volatility regime, IV percentile, RV-IV spread |
-| Market Internals | 10% | NYSE TICK, advance/decline, VWAP deviation |
-| Sentiment | 5% | CNN Fear & Greed, Reddit, news (contrarian) |
+### Three Validation Layers
 
-Entries require passing gate checks: macro blackout, time window, IV percentile, VIX crisis, spread quality, portfolio Greeks limits, and PDT budget.
+1. **Claude's prompt rules** — trading instructions, analysis process, risk awareness
+2. **Python validator** — hard limits on size, daily loss, timing, position count (cannot be bypassed)
+3. **Alpaca broker** — buying power, options approval level, PDT enforcement
 
-### Risk Management
+### What Claude Analyzes Each Cycle
 
-- **Kelly criterion sizing** with VIX-adjusted multiplier
-- **Portfolio Greeks limits** — delta, gamma, theta, vega caps
-- **PDT rule tracking** — 3 day-trade limit under $25k
-- **Circuit breaker** — auto-halt on drawdown or consecutive losses
-- **Hard close** — all positions closed at 3:15 PM ET (before Alpaca's 3:30 PM 0DTE cutoff)
+| Step | What It Does |
+|------|-------------|
+| Check state | Account equity, open positions, pending orders, daily P&L |
+| Manage positions | Current option quotes, take profit/stop loss/time exit decisions |
+| Scan setups | Price bars (OHLCV, VWAP), support/resistance, volume analysis |
+| Evaluate options | Chains with Greeks (delta, gamma, theta, vega, IV), spreads, liquidity |
+| Validate & execute | Dry-run validation → limit order placement → Telegram alert |
 
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
-pip install -r requirements.txt
+# 1. Clone and install
+git clone https://github.com/CoopYoung/OptionsScalper.git
+cd OptionsScalper
+pip install -r hybrid/requirements.txt
 
-# 2. Configure
-cp .env.example .env
-# Edit .env with your Alpaca API keys
+# 2. Configure (edit .env with your Alpaca + Telegram credentials)
+cp hybrid/.env.example .env
 
-# 3. Run (paper trading)
-docker compose up -d
+# 3. Test it
+python -m hybrid.cli account          # Verify Alpaca connection
+python -m hybrid.cli quotes SPY QQQ   # Check quotes
+./hybrid/run_cycle.sh --force         # Run one cycle (even outside market hours)
+
+# 4. Install cron for autonomous trading
+./hybrid/setup_cron.sh
 ```
 
-See [INSTRUCTIONS.md](INSTRUCTIONS.md) for full setup, configuration reference, and troubleshooting.
+### Requirements
+
+- **Claude Code** CLI installed and authenticated (Max subscription recommended)
+- **Alpaca** account (paper trading is free — no deposit needed)
+- **Python 3.10+**
+- Telegram bot (optional, for trade alerts)
 
 ## Project Structure
 
 ```
-src/
-├── core/engine.py          # Trading engine (3 async loops)
-├── data/                   # Alpaca client, WebSocket streams, chain manager, cache, DB
-├── quant/                  # VIX, GEX, flow, sentiment, macro calendar, market internals
-├── strategy/               # Technical signals, 0DTE ensemble strategy
-├── risk/                   # Kelly sizing, Greeks limits, PDT tracker, circuit breaker
-└── infra/                  # Config, logging, Telegram alerts
+hybrid/                         # Active trading system
+├── run_cycle.sh                # Cron entry point — invokes Claude Code
+├── setup_cron.sh               # One-command cron installer
+├── trading_prompt.md           # Claude's analysis instructions + rules
+├── cli.py                      # 14 CLI commands wrapping Alpaca API
+├── config.py                   # Settings from .env
+├── broker/
+│   ├── alpaca.py               # Alpaca REST wrapper
+│   └── tools.py                # Tool definitions (API fallback mode)
+├── ai/
+│   ├── analyst.py              # Claude API caller (fallback mode)
+│   └── prompts.py              # System prompt builder (fallback mode)
+├── risk/
+│   └── validator.py            # Hard rule enforcement
+├── alerts/
+│   └── telegram.py             # Trade alerts + daily summaries
+└── logs/
+    └── audit.py                # JSONL audit trail
+
+src/                            # Original Python bot (deprecated)
 ```
 
-## Requirements
+## Risk Rules (Hard-Coded, Validator-Enforced)
 
-- Python 3.12+
-- Docker & Docker Compose
-- Alpaca account (paper trading is free)
-- Redis (included in Docker Compose)
+| Rule | Default | Configurable |
+|------|---------|-------------|
+| Max risk per trade | $150 | MAX_RISK_PER_TRADE |
+| Max daily loss | $500 | MAX_DAILY_LOSS |
+| Max concurrent positions | 3 | MAX_CONCURRENT_POSITIONS |
+| Max contracts per trade | 5 | MAX_CONTRACTS_PER_TRADE |
+| Min reward:risk ratio | 1.5:1 | MIN_REWARD_RISK_RATIO |
+| Entry window | 9:45 AM - 3:00 PM ET | ENTRY_START_ET, ENTRY_CUTOFF_ET |
+| Hard close | 3:45 PM ET | HARD_CLOSE_ET |
+| Strategies allowed | Spreads + long options only | ALLOWED_STRATEGIES |
 
-## Status
+## Modes
 
-Core trading system is built. Still needed:
-- [ ] Unit & integration tests
-- [ ] Web dashboard (real-time quant signals, positions, risk gauges)
-- [ ] Paper trading validation (4+ weeks)
-- [ ] Backtesting framework with historical 0DTE data
-- [ ] Order management improvements (cancel-replace for unfilled orders)
+| Mode | Command | Cost |
+|------|---------|------|
+| **Claude Code (recommended)** | `./hybrid/run_cycle.sh` | Free (Max subscription) |
+| Claude API (fallback) | `python -m hybrid --api` | ~$5-15/day pay-as-you-go |
+| Daily summary | `python -m hybrid --summary` | Free |
+| Direct CLI | `python -m hybrid.cli [command]` | Free |
+
+## Phase Plan
+
+- **Phase 1 (current):** Paper trading on Alpaca — validate Claude's decision-making
+- **Phase 2:** Swap to Public.com for live trading (commission rebates, native multi-leg support)
+- **Future:** Add market data tools (VIX, sentiment, economic calendar, options flow) for richer analysis
+
+## Background
+
+This project started as a complex async Python bot with an 8-factor signal ensemble, 3 concurrent loops, and 3000+ lines of stateful code. After weeks of debugging — including a $30.5k paper trading loss from a position accumulation bug — the architecture was redesigned around a simpler principle: **let Claude reason about the market, let Python enforce the rules, let the broker enforce reality.**
