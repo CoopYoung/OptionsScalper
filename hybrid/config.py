@@ -8,9 +8,12 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load .env from project root
-_env_path = Path(__file__).parent.parent / ".env"
-load_dotenv(_env_path)
+# Load .env — root .env has real broker keys, hybrid/.env adds extras
+# (dotenv override=False by default, so first loaded values win)
+_root_env = Path(__file__).parent.parent / ".env"
+_hybrid_env = Path(__file__).parent / ".env"
+load_dotenv(_root_env)       # root .env has real Alpaca/Telegram keys
+load_dotenv(_hybrid_env)     # hybrid/.env adds Finnhub/Public keys (won't override existing)
 
 
 def _get(key: str, default: str = "") -> str:
@@ -68,6 +71,9 @@ ENTRY_CUTOFF_ET = _get("ENTRY_CUTOFF_ET", "15:00")
 HARD_CLOSE_ET = _get("HARD_CLOSE_ET", "15:45")
 MIN_DTE = _int("MIN_DTE", 0)   # 0 = same-day allowed
 MAX_DTE = _int("MAX_DTE", 3)   # Up to 3 DTE
+
+# ── Public.com ─────────────────────────────────────────────
+PUBLIC_SECRET_KEY = _get("PUBLIC_SECRET_KEY")
 
 # ── Logging ─────────────────────────────────────────────────
 LOG_DIR = Path(_get("LOG_DIR", str(Path(__file__).parent / "trade_logs")))

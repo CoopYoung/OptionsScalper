@@ -15,7 +15,9 @@ from decimal import Decimal
 from typing import Optional
 from zoneinfo import ZoneInfo
 
+from src.analytics.trade_analyzer import TradeAnalyzer
 from src.data.alpaca_client import AlpacaClient
+from src.execution.order_manager import OrderManager
 from src.data.alpaca_stream import AlpacaStream
 from src.data.cache import PriceCache
 from src.data.options_chain import OptionsChainManager
@@ -30,9 +32,11 @@ from src.quant.optionsai import OptionsAIAnalyzer
 from src.quant.sentiment import SentimentAggregator
 from src.quant.vix import VIXRegimeDetector
 from src.risk.circuit_breaker import CircuitBreaker
+from src.risk.exit_manager import ExitContext, ExitManager
 from src.risk.manager import OptionsRiskManager
 from src.strategy.base import TradeDirection
 from src.strategy.signals import compute_all_signals
+from src.strategy.weight_adapter import WeightAdapter
 from src.strategy.zero_dte import ZeroDTEStrategy
 
 logger = logging.getLogger(__name__)
@@ -54,7 +58,10 @@ class TradingEngine:
         self._alerts = AlertManager(settings)
         self._cb = CircuitBreaker(settings)
         self._risk = OptionsRiskManager(settings, self._cb)
+        self._exit_mgr = ExitManager(settings)
         self._chain_mgr = OptionsChainManager(settings, self._client)
+        self._analyzer = TradeAnalyzer(self._db)
+        self._order_mgr = OrderManager(self._client)
 
         # ── Quant Layer ────────────────────────────────────────
         self._vix = VIXRegimeDetector(settings)
@@ -66,11 +73,16 @@ class TradingEngine:
         self._optionsai = OptionsAIAnalyzer(settings)
 
         # ── Strategy ───────────────────────────────────────────
+        self._weight_adapter = WeightAdapter(
+            settings, self._analyzer,
+            min_trades=settings.adaptive_min_trades,
+        )
         self._strategy = ZeroDTEStrategy(
             settings, self._chain_mgr,
             self._vix, self._gex, self._flow,
             self._sentiment, self._macro, self._internals,
             self._optionsai,
+            weight_adapter=self._weight_adapter,
         )
 
         # ── State ──────────────────────────────────────────────
@@ -248,7 +260,7 @@ class TradingEngine:
         self._running = True
 
     async def _end_of_day(self) -> None:
-        """End-of-day cleanup: close positions, persist state, send summary."""
+        """End-of-day cleanup: close positions, persist state, send analytics."""
         logger.info("End of day — closing all positions")
 
         # Close any remaining positions
@@ -257,7 +269,7 @@ class TradingEngine:
         # Persist state
         self._persist_state()
 
-        # Send daily summary via Telegram
+        # Send daily P&L summary via Telegram
         risk_status = self._risk.status()
         summary = (
             f"End of Day Summary\n"
@@ -268,6 +280,30 @@ class TradingEngine:
             f"Portfolio: ${float(risk_status.get('portfolio_value', 0)):,.2f}"
         )
         await self._send_alert(summary)
+
+        # Generate and send analytics report
+        try:
+            report = self._analyzer.daily_report()
+            if report.get("total_trades", 0) > 0:
+                analytics_msg = self._analyzer.format_telegram_summary(report)
+                await self._send_alert(analytics_msg)
+                logger.info(
+                    "Daily analytics: %d trades, %.1f%% win rate, $%.2f P&L",
+                    report["total_trades"],
+                    report["performance"]["win_rate"] * 100,
+                    report["performance"]["total_pnl"],
+                )
+        except Exception:
+            logger.exception("Failed to generate daily analytics report")
+
+        # Attempt weight recalibration (no-op if disabled or insufficient data)
+        try:
+            result = self._weight_adapter.maybe_recalibrate()
+            if result:
+                await self._send_alert(self._weight_adapter.format_status())
+        except Exception:
+            logger.exception("Weight recalibration failed")
+
         logger.info("End of day complete — will resume tomorrow")
 
     async def _start_telegram_bot(self) -> None:
@@ -384,7 +420,6 @@ class TradingEngine:
                 # Get current quote
                 quote = self._stream.get_option_quote(symbol)
                 if not quote:
-                    # Fallback: REST snapshot
                     snapshots = await self._client.get_snapshots([symbol])
                     snap = snapshots.get(symbol)
                     if snap:
@@ -401,40 +436,101 @@ class TradingEngine:
 
                 entry_premium = pos["entry_premium"]
                 peak_premium = pos.get("peak_premium", entry_premium)
+                underlying = pos["underlying"]
+                current_spot = float(self._last_prices.get(underlying, Decimal("0")))
+                option_type = pos.get("option_type", "call")
 
-                # Update peak
+                # Update peak premium
                 if current_premium > peak_premium:
                     pos["peak_premium"] = current_premium
 
-                # Check exit conditions
-                should_exit, reason = self._risk.should_exit(
-                    symbol, current_premium, peak_premium, entry_premium, now,
-                )
+                # Update peak spot (favorable direction)
+                entry_spot = pos.get("entry_spot", 0)
+                peak_spot = pos.get("peak_spot", entry_spot)
+                if option_type == "call" and current_spot > peak_spot:
+                    pos["peak_spot"] = current_spot
+                elif option_type == "put" and current_spot < peak_spot:
+                    pos["peak_spot"] = current_spot
 
-                if should_exit:
-                    await self._close_position(symbol, current_premium, reason)
+                # Track max favorable / adverse P&L for analytics
+                pnl = (current_premium - entry_premium) * pos["qty"] * 100
+                if pnl > pos.get("max_favorable_pnl", Decimal("0")):
+                    pos["max_favorable_pnl"] = pnl
+                if pnl < pos.get("max_adverse_pnl", Decimal("0")):
+                    pos["max_adverse_pnl"] = pnl
+
+                # Build exit context and evaluate
+                ctx = ExitContext(
+                    symbol=symbol,
+                    current_premium=current_premium,
+                    entry_premium=entry_premium,
+                    peak_premium=pos["peak_premium"],
+                    entry_time=pos["entry_time"],
+                    entry_spot=entry_spot,
+                    current_spot=current_spot,
+                    peak_spot=pos.get("peak_spot", entry_spot),
+                    contract=pos.get("contract"),
+                    direction=option_type,
+                )
+                decision = self._exit_mgr.evaluate(ctx, now)
+
+                if decision.should_exit:
+                    await self._close_position(
+                        symbol, current_premium, decision.reason,
+                        urgency=decision.urgency,
+                    )
 
             except Exception:
                 logger.exception("Exit check error for %s", symbol)
 
     async def _check_pending_orders(self) -> None:
-        """Check if pending orders have been filled."""
-        for order_id, order_info in list(self._pending_orders.items()):
+        """Check managed orders: walk prices, handle fills/cancels."""
+        try:
+            events = await self._order_mgr.check_and_walk()
+        except Exception:
+            logger.exception("Order manager check error")
+            return
+
+        for event in events:
             try:
-                order = await self._client.get_order(order_id)
-                if not order:
-                    continue
+                etype = event["type"]
 
-                status = order["status"]
+                if etype == "filled":
+                    info = event.get("metadata", {})
+                    info["slippage"] = event.get("slippage", 0)
+                    await self._handle_fill(
+                        event["order_id"],
+                        {
+                            "filled_avg_price": str(event["fill_price"]),
+                            "filled_qty": str(event["qty"]),
+                            "status": "filled",
+                        },
+                        info,
+                    )
+                    logger.info(
+                        "Order filled: %s %s %d @ $%.2f (slippage=$%.4f, latency=%.1fs, walks=%d)",
+                        event["side"], event["symbol"], event["qty"],
+                        event["fill_price"], event.get("slippage", 0),
+                        event.get("fill_latency_secs", 0), event.get("walk_steps", 0),
+                    )
 
-                if status == "filled":
-                    await self._handle_fill(order_id, order, order_info)
-                elif status in ("cancelled", "expired", "rejected"):
-                    logger.info("Order %s: %s", order_id, status)
-                    self._pending_orders.pop(order_id, None)
+                elif etype == "timeout_cancelled":
+                    logger.info(
+                        "Order timed out: %s %s after %.1fs",
+                        event["side"], event["symbol"], event.get("age_secs", 0),
+                    )
+
+                elif etype == "cancelled":
+                    logger.info("Order %s: %s", event["order_id"], event.get("reason", "cancelled"))
+
+                elif etype == "walked":
+                    logger.debug(
+                        "Order walked: %s step %d → $%.2f",
+                        event["symbol"], event.get("walk_step", 0), event.get("new_limit", 0),
+                    )
 
             except Exception:
-                logger.exception("Order check error for %s", order_id)
+                logger.exception("Error handling order event: %s", event)
 
     async def _handle_fill(self, order_id: str, order: dict, info: dict) -> None:
         """Handle a filled order."""
@@ -444,9 +540,12 @@ class TradingEngine:
         qty = int(order.get("filled_qty", info.get("qty", 0)))
 
         if side == "buy":
-            # Opening position
+            # Opening position — capture underlying price for directional trailing
+            underlying = info["underlying"]
+            entry_spot = float(self._last_prices.get(underlying, Decimal("0")))
+
             self._open_positions[symbol] = {
-                "underlying": info["underlying"],
+                "underlying": underlying,
                 "option_type": info["option_type"],
                 "strike": info["strike"],
                 "entry_premium": filled_price,
@@ -456,6 +555,11 @@ class TradingEngine:
                 "order_id": order_id,
                 "contract": info.get("contract"),
                 "confidence": info.get("confidence", 0),
+                "entry_spot": entry_spot,
+                "peak_spot": entry_spot,
+                "max_favorable_pnl": Decimal("0"),
+                "max_adverse_pnl": Decimal("0"),
+                "signal_mid": info.get("limit_price", 0),
             }
 
             # Subscribe to option quotes
@@ -645,48 +749,54 @@ class TradingEngine:
         await self._place_entry_order(signal, contracts)
 
     async def _place_entry_order(self, signal, contracts: int) -> None:
-        """Place a limit order for entry."""
+        """Place an entry order via OrderManager with adaptive pricing."""
         contract = signal.contract
         if not contract:
             return
 
-        # Limit price: slightly above mid for better fill probability
-        limit_price = float(contract.mid * Decimal("1.01"))
+        bid = float(contract.bid) if contract.bid else 0
+        ask = float(contract.ask) if contract.ask else 0
+        if bid <= 0 or ask <= 0:
+            bid = float(contract.mid) * 0.95
+            ask = float(contract.mid) * 1.05
 
-        order = await self._client.place_order(
+        metadata = {
+            "symbol": contract.symbol,
+            "underlying": signal.underlying,
+            "option_type": contract.option_type,
+            "strike": contract.strike,
+            "expiration": contract.expiration,
+            "side": "buy",
+            "direction": signal.direction.value,
+            "qty": contracts,
+            "limit_price": (bid + ask) / 2,
+            "confidence": signal.confidence,
+            "reason": signal.reason,
+            "contract": contract,
+            "greeks_json": json.dumps({
+                "delta": contract.delta,
+                "gamma": contract.gamma,
+                "theta": contract.theta,
+                "vega": contract.vega,
+                "iv": contract.iv,
+            }),
+            "quant_json": json.dumps(signal.score_breakdown),
+        }
+
+        order_id = await self._order_mgr.submit_entry(
             symbol=contract.symbol,
-            side="buy",
             qty=contracts,
-            limit_price=limit_price,
+            bid=bid,
+            ask=ask,
+            metadata=metadata,
         )
 
-        if order:
-            self._pending_orders[order["id"]] = {
-                "symbol": contract.symbol,
-                "underlying": signal.underlying,
-                "option_type": contract.option_type,
-                "strike": contract.strike,
-                "expiration": contract.expiration,
-                "side": "buy",
-                "direction": signal.direction.value,
-                "qty": contracts,
-                "limit_price": limit_price,
-                "confidence": signal.confidence,
-                "reason": signal.reason,
-                "contract": contract,
-                "greeks_json": json.dumps({
-                    "delta": contract.delta,
-                    "gamma": contract.gamma,
-                    "theta": contract.theta,
-                    "vega": contract.vega,
-                    "iv": contract.iv,
-                }),
-                "quant_json": json.dumps(signal.score_breakdown),
-            }
+        if order_id:
             logger.info(
-                "ORDER: %s %s %d x $%s %s @ $%.2f (conf=%d)",
+                "ORDER: %s %s %d x $%s %s mid=$%.2f (conf=%d)",
                 signal.direction.value, signal.underlying, contracts,
-                contract.strike, contract.option_type, limit_price, signal.confidence,
+                contract.strike, contract.option_type,
+                (bid + ask) / 2, signal.confidence,
             )
 
     # ── Chain Refresh Loop ────────────────────────────────────
@@ -706,8 +816,17 @@ class TradingEngine:
 
     # ── Position Management ───────────────────────────────────
 
-    async def _close_position(self, symbol: str, current_premium: Decimal, reason: str) -> None:
-        """Close a position by selling."""
+    async def _close_position(
+        self, symbol: str, current_premium: Decimal, reason: str,
+        urgency: str = "normal",
+    ) -> None:
+        """Close a position by selling.
+
+        Urgency levels affect limit price:
+            normal:    mid * 0.99 (slightly below mid)
+            urgent:    mid * 0.97 (more aggressive)
+            immediate: mid * 0.95 (accept worse fill for speed)
+        """
         pos = self._open_positions.get(symbol)
         if not pos:
             return
@@ -715,38 +834,54 @@ class TradingEngine:
         qty = pos["qty"]
         entry_premium = pos["entry_premium"]
 
-        # Place sell order
+        # Urgency-based limit pricing
+        price_multiplier = {"normal": "0.99", "urgent": "0.97", "immediate": "0.95"}
+        mult = Decimal(price_multiplier.get(urgency, "0.99"))
+        limit_price = float(current_premium * mult)
+
         order = await self._client.place_order(
             symbol=symbol,
             side="sell",
             qty=qty,
-            limit_price=float(current_premium * Decimal("0.99")),  # Slightly below mid
+            limit_price=limit_price,
         )
 
         if order:
-            # Estimate P&L
             pnl = (current_premium - entry_premium) * qty * 100
             self._risk.record_close(symbol, pnl)
+
+            # Compute enriched analytics data
+            hold_time = datetime.now(timezone.utc) - pos["entry_time"]
+            hold_seconds = int(hold_time.total_seconds())
+            underlying = pos["underlying"]
+            current_spot = float(self._last_prices.get(underlying, Decimal("0")))
+            entry_spot = pos.get("entry_spot", 0)
+            underlying_move_pct = (
+                (current_spot - entry_spot) / entry_spot
+                if entry_spot > 0 else 0
+            )
 
             self._db.record_trade_close(
                 contract_symbol=symbol,
                 exit_premium=current_premium,
                 pnl=pnl,
                 exit_reason=reason,
+                hold_seconds=hold_seconds,
+                max_favorable_pnl=pos.get("max_favorable_pnl", Decimal("0")),
+                max_adverse_pnl=pos.get("max_adverse_pnl", Decimal("0")),
+                underlying_move_pct=round(underlying_move_pct, 6),
             )
 
-            # Unsubscribe from quotes
             await self._stream.unsubscribe_options([symbol])
             self._open_positions.pop(symbol, None)
 
-            hold_time = datetime.now(timezone.utc) - pos["entry_time"]
             logger.info(
-                "CLOSED: %s %d @ $%.2f PnL=$%.2f (%s) hold=%s",
+                "CLOSED: %s %d @ $%.2f PnL=$%.2f (%s) hold=%s urgency=%s",
                 symbol, qty, float(current_premium), float(pnl), reason,
-                str(hold_time).split(".")[0],
+                str(hold_time).split(".")[0], urgency,
             )
             await self._alerts.trade_closed(
-                underlying=pos["underlying"],
+                underlying=underlying,
                 strike=str(pos["strike"]),
                 option_type=pos["option_type"],
                 contracts=qty,

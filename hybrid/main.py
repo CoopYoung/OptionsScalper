@@ -17,10 +17,13 @@ Usage:
 
 import argparse
 import logging
+import signal
 import sys
+import time
 
 from hybrid.alerts.telegram import notify_daily_summary, notify_error
 from hybrid.broker import alpaca
+from hybrid.config import CRON_INTERVAL_MINUTES
 from hybrid.risk.validator import get_daily_state, is_market_hours
 
 logging.basicConfig(
@@ -62,15 +65,51 @@ def run_api_cycle():
         notify_error(str(e))
 
 
+def run_serve():
+    """Run continuously — loop cycles at CRON_INTERVAL_MINUTES, wait when market closed."""
+    interval = CRON_INTERVAL_MINUTES * 60
+    running = True
+
+    def _stop(sig, frame):
+        nonlocal running
+        logger.info("Shutting down (signal %s)", sig)
+        running = False
+
+    signal.signal(signal.SIGINT, _stop)
+    signal.signal(signal.SIGTERM, _stop)
+
+    logger.info("Hybrid Trader — serve mode (interval=%dm)", CRON_INTERVAL_MINUTES)
+    logger.info("Waiting for market hours to begin cycles...")
+
+    while running:
+        if is_market_hours():
+            logger.info("Market open — running cycle")
+            run_api_cycle()
+        else:
+            logger.info("Market closed — sleeping %dm", CRON_INTERVAL_MINUTES)
+
+        # Sleep in small increments so we can catch signals
+        for _ in range(interval):
+            if not running:
+                break
+            time.sleep(1)
+
+    logger.info("Hybrid Trader stopped")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Hybrid Claude + Alpaca Trader")
     parser.add_argument("--summary", action="store_true", help="Send daily summary")
     parser.add_argument("--api", action="store_true",
                         help="Run single cycle via Anthropic API (costs money)")
+    parser.add_argument("--serve", action="store_true",
+                        help="Run continuously — loop cycles, wait when market closed")
     args = parser.parse_args()
 
     if args.summary:
         send_daily_summary()
+    elif args.serve:
+        run_serve()
     elif args.api:
         run_api_cycle()
     else:
@@ -83,6 +122,7 @@ def main():
         print("")
         print("Fallback (pay-as-you-go API):")
         print("  python -m hybrid --api          # Single cycle via Anthropic API")
+        print("  python -m hybrid --serve        # Continuous mode (loops forever)")
         print("")
         print("Utilities:")
         print("  python -m hybrid --summary      # Send daily Telegram summary")

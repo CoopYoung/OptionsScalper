@@ -25,6 +25,21 @@ import json
 import sys
 
 from hybrid.broker import alpaca
+from hybrid.broker.market_data import (
+    get_vix,
+    get_fear_greed,
+    get_sector_performance,
+    get_news_sentiment,
+    get_market_news,
+    get_economic_calendar,
+    get_earnings_calendar,
+)
+from hybrid.broker.public_data import (
+    get_index_quotes,
+    get_option_greeks,
+    get_option_chain_with_greeks,
+    get_public_portfolio,
+)
 from hybrid.risk.validator import (
     get_daily_state,
     is_market_hours,
@@ -168,6 +183,80 @@ def cmd_record_pnl(args):
     _print_json(get_daily_state())
 
 
+# ── Market Data Commands ──────────────────────────────────────
+
+def cmd_vix(args):
+    """Get VIX level and volatility regime."""
+    _print_json(get_vix())
+
+
+def cmd_fear_greed(args):
+    """Get CNN Fear & Greed Index."""
+    _print_json(get_fear_greed())
+
+
+def cmd_sectors(args):
+    """Get sector ETF performance and market breadth."""
+    _print_json(get_sector_performance())
+
+
+def cmd_sentiment(args):
+    """Get news sentiment for a symbol."""
+    _print_json(get_news_sentiment(args.symbol))
+
+
+def cmd_news(args):
+    """Get latest market news headlines."""
+    _print_json(get_market_news(args.category))
+
+
+def cmd_calendar(args):
+    """Get economic calendar (upcoming events)."""
+    _print_json(get_economic_calendar())
+
+
+def cmd_earnings(args):
+    """Get earnings calendar for upcoming week."""
+    _print_json(get_earnings_calendar())
+
+
+def cmd_market_overview(args):
+    """Get VIX + Fear&Greed + sectors in one call (saves Claude turns)."""
+    overview = {
+        "vix": get_vix(),
+        "fear_and_greed": get_fear_greed(),
+        "sectors": get_sector_performance(),
+    }
+    _print_json(overview)
+
+
+# ── Public.com Data Commands ─────────────────────────────────
+
+def cmd_indices(args):
+    """Get index quotes (VIX, SPX, etc.) from Public.com."""
+    _print_json(get_index_quotes(args.symbols))
+
+
+def cmd_greeks(args):
+    """Get option Greeks + IV from Public.com."""
+    _print_json(get_option_greeks(args.symbols))
+
+
+def cmd_chain_greeks(args):
+    """Get option chain with Greeks + IV from Public.com."""
+    _print_json(get_option_chain_with_greeks(
+        symbol=args.underlying,
+        expiry=args.expiry,
+        option_type=args.type,
+        near_money_range=args.range,
+    ))
+
+
+def cmd_public_portfolio(args):
+    """Get Public.com portfolio."""
+    _print_json(get_public_portfolio())
+
+
 def main():
     parser = argparse.ArgumentParser(description="Hybrid Trader CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -238,6 +327,38 @@ def main():
     p = sub.add_parser("record-pnl", help="Record closed trade P&L")
     p.add_argument("pnl", type=float, help="P&L amount")
 
+    # ── Market Data Commands ──────────────────────────────────
+    sub.add_parser("vix", help="Get VIX level and volatility regime")
+    sub.add_parser("fear-greed", help="Get CNN Fear & Greed Index")
+    sub.add_parser("sectors", help="Get sector ETF performance")
+
+    p = sub.add_parser("sentiment", help="Get news sentiment for symbol")
+    p.add_argument("symbol", nargs="?", default="SPY", help="Symbol (default: SPY)")
+
+    p = sub.add_parser("news", help="Get market news headlines")
+    p.add_argument("--category", default="general", help="News category")
+
+    sub.add_parser("calendar", help="Get economic calendar")
+    sub.add_parser("earnings", help="Get earnings calendar")
+
+    # Convenience: all macro data in one call
+    sub.add_parser("market-overview", help="Get VIX + Fear&Greed + sectors in one call")
+
+    # ── Public.com Data Commands ──────────────────────────────
+    p = sub.add_parser("indices", help="Get index quotes (VIX, SPX) from Public.com")
+    p.add_argument("symbols", nargs="*", default=["VIX", "SPX"], help="Index symbols")
+
+    p = sub.add_parser("greeks", help="Get option Greeks + IV from Public.com")
+    p.add_argument("symbols", nargs="+", help="OSI option symbols (max 250)")
+
+    p = sub.add_parser("chain-greeks", help="Get option chain with Greeks + IV")
+    p.add_argument("underlying", help="Underlying symbol (e.g. SPY)")
+    p.add_argument("--expiry", required=True, help="Expiration date YYYY-MM-DD")
+    p.add_argument("--type", choices=["call", "put"], help="Filter call/put")
+    p.add_argument("--range", type=int, default=10, help="Strikes above/below ATM")
+
+    sub.add_parser("public-portfolio", help="Get Public.com portfolio")
+
     args = parser.parse_args()
 
     # Dispatch
@@ -256,6 +377,18 @@ def main():
         "close": cmd_close,
         "cancel": cmd_cancel,
         "record-pnl": cmd_record_pnl,
+        "vix": cmd_vix,
+        "fear-greed": cmd_fear_greed,
+        "sectors": cmd_sectors,
+        "sentiment": cmd_sentiment,
+        "news": cmd_news,
+        "calendar": cmd_calendar,
+        "earnings": cmd_earnings,
+        "market-overview": cmd_market_overview,
+        "indices": cmd_indices,
+        "greeks": cmd_greeks,
+        "chain-greeks": cmd_chain_greeks,
+        "public-portfolio": cmd_public_portfolio,
     }
 
     try:

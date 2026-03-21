@@ -14,12 +14,29 @@ python3 -m hybrid.cli positions            # Open positions with P&L
 python3 -m hybrid.cli orders --status open # Pending orders
 python3 -m hybrid.cli daily-state          # Today's P&L, trade count, market hours
 
-# Market Data
+# Market Data (Broker)
 python3 -m hybrid.cli quotes SPY QQQ IWM          # Real-time quotes
 python3 -m hybrid.cli bars SPY --timeframe 5Min    # Price bars for technicals
 python3 -m hybrid.cli expirations SPY              # Available option expirations
 python3 -m hybrid.cli chain SPY --expiry 2026-03-25 --type call  # Options chain with Greeks
 python3 -m hybrid.cli option-quote SPY260325C00580000  # Single option quote
+
+# Market Context (External — no extra cost)
+python3 -m hybrid.cli market-overview              # VIX + Fear&Greed + sectors in one call
+python3 -m hybrid.cli vix                          # VIX level + regime (LOW/NORMAL/ELEVATED/HIGH/CRISIS)
+python3 -m hybrid.cli fear-greed                   # CNN Fear & Greed (0-100 + contrarian signal)
+python3 -m hybrid.cli sectors                      # Sector ETF performance + breadth
+python3 -m hybrid.cli sentiment SPY                # Finnhub news sentiment for symbol
+python3 -m hybrid.cli news                         # Top 10 market headlines
+python3 -m hybrid.cli calendar                     # Economic calendar (FOMC, CPI, NFP blackouts)
+python3 -m hybrid.cli earnings                     # Upcoming earnings for major stocks
+
+# Public.com Data (supplemental — free API)
+python3 -m hybrid.cli indices                      # VIX + SPX index quotes (real-time)
+python3 -m hybrid.cli indices VIX SPX NDX DJX      # Custom index list
+python3 -m hybrid.cli greeks SPY260325C00650000    # Greeks + IV for specific contracts
+python3 -m hybrid.cli chain-greeks SPY --expiry 2026-03-25 --type call  # Chain with Greeks + IV
+python3 -m hybrid.cli public-portfolio             # Public.com account view
 
 # Order Execution (validates against risk rules automatically)
 python3 -m hybrid.cli validate buy SPY260325C00580000 3 --price 2.50  # Dry run
@@ -51,7 +68,20 @@ Run these commands to understand current situation:
 If daily P&L is below -$500, STOP. Do not trade. Just report the status.
 If force_close is true, close ALL positions immediately.
 
-### Step 2: Manage Existing Positions
+### Step 2: Read Market Context
+Get the big picture before looking at individual trades:
+- `python3 -m hybrid.cli market-overview` — VIX regime, Fear & Greed, sector breadth (one call)
+- `python3 -m hybrid.cli calendar` — check for FOMC/CPI/NFP events (BLACKOUT = don't trade)
+- `python3 -m hybrid.cli earnings` — check if any of our underlyings report soon (avoid trading around earnings)
+
+**Use this to set your bias:**
+- VIX CRISIS or HIGH → reduce position sizes, widen stops, or stand aside
+- Fear & Greed ≤ 25 (extreme fear) → contrarian bullish lean
+- Fear & Greed ≥ 75 (extreme greed) → contrarian bearish lean
+- FOMC/CPI/NFP today → DO NOT enter new positions within ±60 min of event
+- Earnings today for an underlying → avoid that underlying
+
+### Step 3: Manage Existing Positions
 For each open position:
 - Get current quote: `python3 -m hybrid.cli option-quote SYMBOL`
 - Take profit: if unrealized P&L > +30% of entry premium
@@ -59,32 +89,36 @@ For each open position:
 - Time exit: close any 0DTE positions after 3:00 PM ET
 - After closing, record the P&L: `python3 -m hybrid.cli record-pnl AMOUNT`
 
-### Step 3: Scan for New Setups (only if room for new positions)
+### Step 4: Scan for New Setups (only if room for new positions)
 - Get quotes: `python3 -m hybrid.cli quotes SPY QQQ IWM`
 - Get price bars: `python3 -m hybrid.cli bars SPY --timeframe 5Min --limit 50`
+- Optionally get sentiment: `python3 -m hybrid.cli sentiment SPY` (confirms directional bias)
 - Look for:
   * Support/resistance bounces with momentum confirmation
   * High volume indicating institutional activity
   * Clean trend continuation after pullback
   * VWAP reclaim or rejection
+  * Alignment with macro context from Step 2
   * NOT: choppy, low-volume, indecisive price action
 
-### Step 4: Evaluate Options (only if Step 3 found something)
+### Step 5: Evaluate Options (only if Step 4 found something)
 - Get expirations: `python3 -m hybrid.cli expirations SPY`
-- Get chain: `python3 -m hybrid.cli chain SPY --expiry DATE --type call`
+- **Prefer chain-greeks** (includes Greeks + IV): `python3 -m hybrid.cli chain-greeks SPY --expiry DATE --type call`
+- Fallback to Alpaca chain: `python3 -m hybrid.cli chain SPY --expiry DATE --type call`
 - Look for:
   * Tight bid-ask spreads (< 10% of mid price)
   * Delta between 0.25-0.45 for directional plays
   * Good liquidity (open interest > 100)
+  * IV — compare to recent levels (high IV = expensive options, favor selling; low IV = cheap, favor buying)
   * 0-3 DTE
 
-### Step 5: Validate Before Executing
+### Step 6: Validate Before Executing
 - Dry run: `python3 -m hybrid.cli validate buy SYMBOL QTY --price PRICE`
 - If approved, execute: `python3 -m hybrid.cli order buy SYMBOL QTY limit --price PRICE`
 - Always use LIMIT orders for entries (never market)
 - Market orders OK for urgent exits
 
-### Step 6: Send Telegram Summary
+### Step 7: Send Telegram Summary
 After completing analysis, send a summary via:
 ```bash
 python3 -c "

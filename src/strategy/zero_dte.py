@@ -38,6 +38,7 @@ from src.quant.sentiment import SentimentAggregator
 from src.quant.vix import VIXRegimeDetector
 from src.strategy.base import BaseStrategy, TradeDirection, TradeSignal
 from src.strategy.signals import SignalBundle
+from src.strategy.weight_adapter import WeightAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ class ZeroDTEStrategy(BaseStrategy):
         macro: MacroCalendar,
         internals: MarketInternals,
         optionsai: Optional[OptionsAIAnalyzer] = None,
+        weight_adapter: Optional[WeightAdapter] = None,
     ) -> None:
         self._settings = settings
         self._chain_mgr = chain_mgr
@@ -66,6 +68,7 @@ class ZeroDTEStrategy(BaseStrategy):
         self._macro = macro
         self._internals = internals
         self._optionsai = optionsai
+        self._weight_adapter = weight_adapter
 
     @property
     def name(self) -> str:
@@ -101,29 +104,39 @@ class ZeroDTEStrategy(BaseStrategy):
         oai_score_call = self._optionsai.get_score(underlying, "call") if self._optionsai else 0.0
         oai_score_put = self._optionsai.get_score(underlying, "put") if self._optionsai else 0.0
 
+        # ── Get weights (adaptive or static) ─────────────────
+        wa = self._weight_adapter
+        wt = wa.get_weight("technical") if wa else self._settings.weight_technical
+        wtm = wa.get_weight("tick_momentum") if wa else self._settings.weight_tick_momentum
+        wg = wa.get_weight("gex") if wa else self._settings.weight_gex
+        wf = wa.get_weight("flow") if wa else self._settings.weight_flow
+        wv = wa.get_weight("vix") if wa else self._settings.weight_vix
+        wi = wa.get_weight("internals") if wa else self._settings.weight_internals
+        ws = wa.get_weight("sentiment") if wa else self._settings.weight_sentiment
+        wo = wa.get_weight("optionsai") if wa else self._settings.weight_optionsai
+
         # ── Weighted ensemble for CALL direction ───────────────
-        w = self._settings
         call_score = (
-            tech_score * w.weight_technical +
-            tick_score * w.weight_tick_momentum +
-            gex_score_call * w.weight_gex +
-            flow_score_call * w.weight_flow +
-            vix_score * w.weight_vix +
-            internals_score * w.weight_internals +
-            sentiment_score_call * w.weight_sentiment +
-            oai_score_call * w.weight_optionsai
+            tech_score * wt +
+            tick_score * wtm +
+            gex_score_call * wg +
+            flow_score_call * wf +
+            vix_score * wv +
+            internals_score * wi +
+            sentiment_score_call * ws +
+            oai_score_call * wo
         )
 
         # ── Weighted ensemble for PUT direction ────────────────
         put_score = (
-            -tech_score * w.weight_technical +
-            -tick_score * w.weight_tick_momentum +
-            gex_score_put * w.weight_gex +
-            flow_score_put * w.weight_flow +
-            -vix_score * w.weight_vix +
-            -internals_score * w.weight_internals +
-            sentiment_score_put * w.weight_sentiment +
-            oai_score_put * w.weight_optionsai
+            -tech_score * wt +
+            -tick_score * wtm +
+            gex_score_put * wg +
+            flow_score_put * wf +
+            -vix_score * wv +
+            -internals_score * wi +
+            sentiment_score_put * ws +
+            oai_score_put * wo
         )
 
         # Scale to 0-100 confidence
