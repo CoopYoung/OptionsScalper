@@ -72,6 +72,7 @@ def validate_new_order(
     limit_price: float | None,
     current_positions: list[dict],
     account: dict,
+    confidence: int = 100,
 ) -> dict:
     """Validate a proposed order against all hard rules.
 
@@ -82,6 +83,13 @@ def validate_new_order(
     """
     violations = []
     state = _load_daily_state()
+
+    # ── Confidence threshold ──
+    from hybrid.config import SIGNAL_CONFIDENCE_THRESHOLD
+    if confidence < SIGNAL_CONFIDENCE_THRESHOLD:
+        violations.append(
+            f"Confidence {confidence} < threshold {SIGNAL_CONFIDENCE_THRESHOLD}"
+        )
 
     # ── Time window check ──
     now_et = datetime.now(ET)

@@ -75,6 +75,26 @@ MAX_DTE = _int("MAX_DTE", 3)   # Up to 3 DTE
 # ── Public.com ─────────────────────────────────────────────
 PUBLIC_SECRET_KEY = _get("PUBLIC_SECRET_KEY")
 
+# ── LLM Provider ──────────────────────────────────────────
+LLM_PROVIDER = _get("LLM_PROVIDER", "ollama")       # ollama | anthropic | openai
+OLLAMA_URL = _get("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_MODEL = _get("OLLAMA_MODEL", "0xroyce/plutus")
+
+# ── OpenAI-compatible (also Groq, Together, etc.) ─────────
+OPENAI_API_KEY = _get("OPENAI_API_KEY")
+OPENAI_BASE_URL = _get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+OPENAI_MODEL = _get("OPENAI_MODEL", "gpt-4o-mini")
+
+# ── Exit Management ──────────────────────────────────────
+PROFIT_TARGET_PCT = _float("PROFIT_TARGET_PCT", 50.0)
+STOP_LOSS_PCT = _float("STOP_LOSS_PCT", 30.0)
+TRAILING_STOP_ACTIVATE_PCT = _float("TRAILING_STOP_ACTIVATE_PCT", 30.0)
+TRAILING_STOP_PCT = _float("TRAILING_STOP_PCT", 15.0)
+
+# ── Signal Thresholds ────────────────────────────────────
+SIGNAL_CONFIDENCE_THRESHOLD = _int("SIGNAL_CONFIDENCE_THRESHOLD", 55)
+MAX_OPTIONS_PER_TYPE = _int("MAX_OPTIONS_PER_TYPE", 4)
+
 # ── Logging ─────────────────────────────────────────────────
 LOG_DIR = Path(_get("LOG_DIR", str(Path(__file__).parent / "trade_logs")))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
