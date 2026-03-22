@@ -1,13 +1,40 @@
 # CLAUDE.md — Zero-DTE Options Scalper
 
-You are an expert quantitative trading engineer building a production-grade 0DTE (zero days to expiration) options scalping bot. The bot trades **SPY/QQQ/IWM** options on **Alpaca**, using an 8-factor weighted signal ensemble with quant-level analysis (VIX regime, GEX, options flow, OptionsAI, sentiment, macro calendar, market internals).
+You are an expert quantitative trading engineer building a production-grade 0DTE (zero days to expiration) options scalping bot. The bot trades **SPY/QQQ/IWM** options using a local LLM (Ollama/Plutus) as the decision brain, with Python handling all data gathering, signal computation, and trade execution.
 
 ## Project Overview
 
 - **What it does**: Scalps same-day expiration options on major ETFs during market hours (9:45 AM - 3:15 PM ET)
-- **Broker**: Alpaca (REST + WebSocket, paper + live modes)
-- **Architecture**: Async Python, 3 concurrent loops (fast/quant/strategy), Redis cross-asset consensus, SQLite persistence
-- **Status**: Core trading system built, not yet battle-tested in paper trading. Needs tests, dashboard, and tuning.
+- **Brokers**: Alpaca (paper trading) + Public.com (live trading) — dual-broker architecture
+- **Brain**: Local Ollama model (0xroyce/plutus, Llama 3.1 8B fine-tuned on 394 finance books) running on Orange Pi 6 Plus. Python pre-digests all data into a single prompt; model outputs one JSON decision. Easy to swap to a frontier API (Claude/GPT/Gemini) later.
+- **Architecture**: Python orchestrator (cron every 10 min) → gather data → compute signals → format digest → Ollama inference → validate → execute
+- **Status**: Migrating from `claude -p` subprocess architecture to direct Ollama/API integration. Paper testing phase.
+
+## Active Architecture (v2 — Local LLM)
+
+```
+┌────────────────────────────────────────────────┐
+│  Cron (every 10 min, market hours)             │
+├────────────────────────────────────────────────┤
+│  Python orchestrator                            │
+│  ├── Fetch quotes + chain + Greeks              │
+│  │   ├── Alpaca (paper mode)                   │
+│  │   └── Public.com (live mode)                │
+│  ├── Compute RSI, MACD, Bollinger, VWAP        │
+│  ├── Get VIX, F&G, news (yfinance, CNN, etc.)  │
+│  ├── Format single digest prompt                │
+│  ├── POST to Ollama (Plutus) ← one call        │
+│  ├── Parse JSON response                        │
+│  ├── Validate (risk checks in Python)           │
+│  └── Execute via broker API                     │
+├────────────────────────────────────────────────┤
+│  Broker: Alpaca (paper) / Public.com (live)    │
+│  Data:   Public.com (Greeks, indices)           │
+│          yfinance, CNN F&G, Finnhub             │
+│  Brain:  Ollama Plutus (local, $0/month)        │
+│          ↑ swap to Claude/GPT API for prod      │
+└────────────────────────────────────────────────┘
+```
 
 ## Architecture
 
@@ -109,24 +136,63 @@ WEIGHT_FLOW=0.14, WEIGHT_OPTIONSAI=0.10, WEIGHT_VIX=0.08
 WEIGHT_INTERNALS=0.10, WEIGHT_SENTIMENT=0.05
 ```
 
+## Broker Details
+
+### Alpaca (paper trading)
+- REST + WebSocket, real-time options quotes
+- No IOC orders — only `day` or `gtc` for options
+- 0DTE cutoff: auto-liquidates at 3:30 PM ET; we hard-close at 3:15 PM
+- PDT rule: 4+ round trips in 5 days requires $25k equity
+
+### Public.com (live trading)
+- REST only (no WebSocket), 10 req/s rate limit
+- Commission-free options + rebates ($0.06-$0.18/contract)
+- Python SDK: `publicdotcom-py`
+- MCP server available: `publicdotcom-mcp-server`
+- No paper trading environment — use Alpaca for testing
+- Greeks endpoint: batch up to 250 contracts with IV
+
+## LLM Integration
+
+### Local (default): Ollama + Plutus
+- Model: `0xroyce/plutus` (Llama 3.1 8B, fine-tuned on finance books)
+- Hardware: Orange Pi 6 Plus (RK3588, 22.59 tok/s prompt eval, ~5 tok/s generation)
+- Endpoint: `http://localhost:11434/api/generate`
+- Python does ALL data gathering and signal computation
+- Model receives ONE pre-digested prompt, returns ONE JSON decision
+- No tool calling — keep it simple for 8B model
+
+### Cloud (upgrade path): Anthropic API
+- Swap `OLLAMA_URL` for `ANTHROPIC_API_KEY` in config
+- Claude Haiku: ~$8/month for 39 calls/day
+- Claude Sonnet: ~$60/month (recommended for live money)
+- Can use tool calling for more autonomous operation
+
 ## Running
 
 ```bash
-# Paper trading
-docker compose up -d
+# Paper trading (Alpaca + local Ollama)
+python -m hybrid.orchestrator --mode paper
 
-# Direct (development)
+# Live trading (Public.com + local Ollama)
+python -m hybrid.orchestrator --mode live
+
+# With cloud LLM instead
+ANTHROPIC_API_KEY=sk-... python -m hybrid.orchestrator --mode paper --llm anthropic
+
+# Legacy (original async architecture)
 pip install -r requirements.txt
 python -m src.core
 ```
 
 ## What Needs Work
 
-1. **Paper trading validation** — Run 4+ weeks on paper, track win rate, Sharpe, max drawdown, gate effectiveness
-2. **Backtesting** — Historical 0DTE data replay with slippage model
-3. **Order management** — Cancel-replace flow for unfilled orders (no IOC on Alpaca)
-4. **Quant data sources** — Squeezemetrics API integration for real GEX data, Intrinio for unusual flow
-5. **Signal tuning** — Validate ensemble weights through backtesting, adjust for real market conditions
+1. **Build v2 orchestrator** — Python gathers data, formats digest, calls Ollama, validates, executes
+2. **Paper trading validation** — Run 4+ weeks on Alpaca paper, track win rate, Sharpe, max drawdown
+3. **Backtesting** — Historical data replay using same digest→Ollama→decision pipeline
+4. **Public.com live integration** — Test order flow, handle 10 req/s limit, confirm 0DTE support
+5. **Model comparison** — Log Plutus decisions vs what Claude/Sonnet would decide on same data
+6. **Signal tuning** — Validate ensemble weights through paper trading results
 
 ## When Making Changes
 

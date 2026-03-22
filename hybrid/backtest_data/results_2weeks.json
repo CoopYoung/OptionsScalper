@@ -1,0 +1,274 @@
+{
+  "summary": {
+    "underlyings": [
+      "SPY",
+      "QQQ"
+    ],
+    "start_date": "2026-02-27",
+    "end_date": "2026-03-20",
+    "initial_capital": 69500,
+    "final_capital": 69516.5,
+    "total_pnl": 16.5,
+    "total_trades": 2,
+    "win_rate": 0.5,
+    "profit_factor": 12.9565,
+    "sharpe_ratio": 2.5756,
+    "max_drawdown": 0.0,
+    "avg_trade_pnl": 8.25,
+    "avg_hold_minutes": 27.5
+  },
+  "days": [
+    {
+      "date": "2026-02-27",
+      "vix": 19.860000610351562,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-02-27",
+      "vix": 19.860000610351562,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-02",
+      "vix": 21.440000534057617,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-02",
+      "vix": 21.440000534057617,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-03",
+      "vix": 23.56999969482422,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-03",
+      "vix": 23.56999969482422,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-04",
+      "vix": 21.149999618530273,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-04",
+      "vix": 21.149999618530273,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-05",
+      "vix": 23.75,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-05",
+      "vix": 23.75,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-06",
+      "vix": 29.489999771118164,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-06",
+      "vix": 29.489999771118164,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-09",
+      "vix": 25.5,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-09",
+      "vix": 25.5,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-10",
+      "vix": 24.93000030517578,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-10",
+      "vix": 24.93000030517578,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-11",
+      "vix": 24.229999542236328,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-11",
+      "vix": 24.229999542236328,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-12",
+      "vix": 27.290000915527344,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-12",
+      "vix": 27.290000915527344,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-13",
+      "vix": 27.190000534057617,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-13",
+      "vix": 27.190000534057617,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-16",
+      "vix": 23.510000228881836,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-16",
+      "vix": 23.510000228881836,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-17",
+      "vix": 22.3700008392334,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-17",
+      "vix": 22.3700008392334,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-18",
+      "vix": 25.09000015258789,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-18",
+      "vix": 25.09000015258789,
+      "trades": 1,
+      "pnl": -1.38,
+      "trade_details": [
+        {
+          "symbol": "QQQ20260318C00607000",
+          "type": "call",
+          "contracts": 1,
+          "entry_price": 2.14,
+          "exit_price": 2.13,
+          "pnl": -1.38,
+          "hold_minutes": 45.0,
+          "entry_reason": "Momentum +0.18% | Volume surge (2.8x) | Support bounce | VIX high (25.1) \u2014 reduced confidence",
+          "exit_reason": "Time exit (45m)",
+          "entry_delta": 0.2915,
+          "entry_iv": 0.3466
+        }
+      ]
+    },
+    {
+      "date": "2026-03-19",
+      "vix": 24.059999465942383,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-19",
+      "vix": 24.059999465942383,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    },
+    {
+      "date": "2026-03-20",
+      "vix": 26.780000686645508,
+      "trades": 1,
+      "pnl": 17.88,
+      "trade_details": [
+        {
+          "symbol": "SPY20260320C00660000",
+          "type": "call",
+          "contracts": 1,
+          "entry_price": 2.48,
+          "exit_price": 2.66,
+          "pnl": 17.88,
+          "hold_minutes": 10.0,
+          "entry_reason": "Momentum +0.16% | Above VWAP | Support bounce | VIX high (26.8) \u2014 reduced confidence",
+          "exit_reason": "End of day close",
+          "entry_delta": 0.2986,
+          "entry_iv": 0.3942
+        }
+      ]
+    },
+    {
+      "date": "2026-03-20",
+      "vix": 26.780000686645508,
+      "trades": 0,
+      "pnl": 0.0,
+      "trade_details": []
+    }
+  ]
+}
