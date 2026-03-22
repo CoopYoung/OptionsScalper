@@ -56,8 +56,32 @@ def _build_prompt(simulated_dt: datetime, expiry_date: str) -> str:
     return prompt
 
 
-def _invoke_claude(prompt: str, model: str = "sonnet", max_turns: int = 25) -> dict:
+RATE_LIMIT_PHRASES = [
+    "credit balance is too low",
+    "rate limit",
+    "too many requests",
+    "quota exceeded",
+    "overloaded",
+    "capacity",
+]
+
+
+def _is_rate_limited(output: str, stderr: str) -> bool:
+    """Check if the response indicates a rate limit / credit error."""
+    combined = (output + stderr).lower()
+    return any(phrase in combined for phrase in RATE_LIMIT_PHRASES)
+
+
+def _invoke_claude(
+    prompt: str,
+    model: str = "sonnet",
+    max_turns: int = 25,
+    max_retries: int = 3,
+    cooldown: float = 30.0,
+) -> dict:
     """Invoke Claude via CLI and capture output.
+
+    Retries on rate limit / credit errors with exponential backoff.
 
     Returns dict with:
         output: str — Claude's full response text
@@ -80,49 +104,74 @@ def _invoke_claude(prompt: str, model: str = "sonnet", max_turns: int = 25) -> d
         "--output-format", "text",
     ]
 
-    start = time.time()
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=300,  # 5 min max per cycle
-            env=env,
-            cwd=str(PROJECT_ROOT),
-        )
-        duration = time.time() - start
-        output = result.stdout or ""
-        stderr = result.stderr or ""
+    for attempt in range(max_retries + 1):
+        start = time.time()
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 min max per cycle
+                env=env,
+                cwd=str(PROJECT_ROOT),
+            )
+            duration = time.time() - start
+            output = result.stdout or ""
+            stderr = result.stderr or ""
 
-        if result.returncode != 0 and not output:
+            # Check for rate limiting
+            if _is_rate_limited(output, stderr):
+                wait = cooldown * (2 ** attempt)
+                if attempt < max_retries:
+                    print(f"     ⏳ Rate limited — waiting {wait:.0f}s before retry "
+                          f"({attempt + 1}/{max_retries})...")
+                    time.sleep(wait)
+                    continue
+                else:
+                    return {
+                        "output": "",
+                        "decision": {},
+                        "error": f"Rate limited after {max_retries} retries. "
+                                 f"Wait a few minutes and try again.",
+                        "duration_s": duration,
+                    }
+
+            if result.returncode != 0 and not output:
+                return {
+                    "output": "",
+                    "decision": {},
+                    "error": f"Claude exited {result.returncode}: {stderr[:500]}",
+                    "duration_s": duration,
+                }
+
             return {
-                "output": "",
-                "decision": {},
-                "error": f"Claude exited {result.returncode}: {stderr[:500]}",
+                "output": output,
+                "decision": {},  # Decision extracted in run_day() with state diff
+                "error": "",
                 "duration_s": duration,
             }
 
-        return {
-            "output": output,
-            "decision": {},  # Decision extracted in run_day() with state diff
-            "error": "",
-            "duration_s": duration,
-        }
+        except subprocess.TimeoutExpired:
+            return {
+                "output": "",
+                "decision": {},
+                "error": "Claude invocation timed out (300s)",
+                "duration_s": 300.0,
+            }
+        except FileNotFoundError:
+            return {
+                "output": "",
+                "decision": {},
+                "error": "claude CLI not found — install Claude Code first",
+                "duration_s": 0,
+            }
 
-    except subprocess.TimeoutExpired:
-        return {
-            "output": "",
-            "decision": {},
-            "error": "Claude invocation timed out (300s)",
-            "duration_s": 300.0,
-        }
-    except FileNotFoundError:
-        return {
-            "output": "",
-            "decision": {},
-            "error": "claude CLI not found — install Claude Code first",
-            "duration_s": 0,
-        }
+    return {
+        "output": "",
+        "decision": {},
+        "error": "Exhausted all retries",
+        "duration_s": 0,
+    }
 
 
 def _extract_decision(text: str, state_before: dict, state_after: dict) -> dict:
@@ -369,6 +418,13 @@ def run_day(
         if verbose and result.get("output"):
             print(f"\n--- Claude Output ---\n{result['output'][:2000]}\n---\n")
 
+        # Cooldown between cycles to avoid rate limiting (Max subscription)
+        if cycle_num < len(cycle_indices):
+            cooldown_s = int(os.environ.get("BACKTEST_COOLDOWN", "15"))
+            if cooldown_s > 0:
+                print(f"     💤 Cooldown {cooldown_s}s...")
+                time.sleep(cooldown_s)
+
         # Check daily loss limit
         if state.daily_pnl <= -1000:
             print(f"  \U0001f6d1 Daily loss limit hit (${state.daily_pnl:.2f}). Stopping day.")
@@ -613,6 +669,8 @@ Examples:
                         help="Use yfinance instead of Alpaca for historical data")
     parser.add_argument("--verbose", action="store_true",
                         help="Print Claude's full output each cycle")
+    parser.add_argument("--cooldown", type=int, default=15,
+                        help="Seconds between cycles to avoid rate limits (default: 15)")
     parser.add_argument("--output", type=str, default=None,
                         help="Save results JSON to this file")
 
@@ -625,6 +683,8 @@ Examples:
 
     start = date.fromisoformat(args.start) if args.start else None
     end = date.fromisoformat(args.end) if args.end else None
+
+    os.environ["BACKTEST_COOLDOWN"] = str(args.cooldown)
 
     run_backtest(
         underlying=args.underlying,
