@@ -264,7 +264,7 @@ def run_cycle(
         positions = broker.get_positions()
         option_positions = [p for p in positions if p.get("asset_class") == "us_option"]
 
-        if should_force_close_all() and not digest_only:
+        if should_force_close_all() and not digest_only and not force:
             logger.info("Past hard close — force closing all positions")
             exits = _force_close_all(broker, option_positions, dry_run)
             result["exits"] = exits
