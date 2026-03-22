@@ -128,6 +128,37 @@ hybrid/                              # Active trading system (v2)
 src/                                 # Original async Python bot (legacy)
 ```
 
+## Digest Signals (18 total — what the LLM sees each cycle)
+
+**Market Context:**
+VIX + regime, Fear & Greed (contrarian), sector breadth, economic calendar, earnings, news headlines, time-of-day regime (opening/trend/lunch/power hour + theta decay)
+
+**Per-Underlying Technical Analysis:**
+RSI(14), MACD(12/26/9), Bollinger Bands, VWAP, volume ratio, momentum(5/20), support/resistance, overnight gap, intraday narrative (open → high → low → current story)
+
+**Options Intelligence:**
+Put/Call ratio (volume + OI), IV rank/percentile, net delta flow + unusual activity detection, cross-underlying correlation/divergence, round-number pinning magnet
+
+**Context Awareness:**
+Recent trade history (last 5 trades — avoids repeating mistakes), price-level proximity alerts (near support/resistance/round numbers)
+
+## Setup for Automated Trading
+
+```bash
+# 1. Configure .env
+OLLAMA_URL=http://<orange-pi-ip>:11434    # Point to Orange Pi running Ollama
+OLLAMA_MODEL=0xroyce/plutus               # Or any Ollama model
+LLM_PROVIDER=ollama                       # ollama | anthropic | openai
+
+# 2. Test connectivity
+python -m hybrid.orchestrator --mode paper --digest-only --force  # Generate digest
+python -m hybrid.orchestrator --mode paper --dry-run --force      # Full pipeline, no execution
+
+# 3. Install cron (every 10 min during market hours)
+crontab -e
+# Add: */10 9-15 * * 1-5 cd /path/to/OptionsScalper && python -m hybrid.orchestrator --mode paper >> /var/log/trader.log 2>&1
+```
+
 ## Risk Rules (Hard-Coded, Validator-Enforced)
 
 | Rule | Default | Configurable |

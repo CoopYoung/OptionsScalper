@@ -264,7 +264,7 @@ def run_cycle(
         positions = broker.get_positions()
         option_positions = [p for p in positions if p.get("asset_class") == "us_option"]
 
-        if should_force_close_all():
+        if should_force_close_all() and not digest_only:
             logger.info("Past hard close — force closing all positions")
             exits = _force_close_all(broker, option_positions, dry_run)
             result["exits"] = exits
@@ -291,13 +291,13 @@ def run_cycle(
     daily_state = get_daily_state()
 
     current_time = now_et.strftime("%H:%M")
-    if not force and current_time > config.ENTRY_CUTOFF_ET:
+    if not force and not digest_only and current_time > config.ENTRY_CUTOFF_ET:
         logger.info("Past entry cutoff (%s) — no new entries", config.ENTRY_CUTOFF_ET)
         result["decision"] = {"decision": "NO_TRADE", "reasoning": "Past entry cutoff"}
         _audit_log(result)
         return result
 
-    if not force and current_time < config.ENTRY_START_ET:
+    if not force and not digest_only and current_time < config.ENTRY_START_ET:
         logger.info("Before entry start (%s) — no new entries", config.ENTRY_START_ET)
         result["decision"] = {"decision": "NO_TRADE", "reasoning": "Before entry start"}
         _audit_log(result)
