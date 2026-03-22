@@ -7,6 +7,7 @@ Usage:
 """
 
 import argparse
+import asyncio
 import json
 import logging
 import os
@@ -30,8 +31,8 @@ def main() -> None:
                         help="Bar interval (default: 2m)")
     parser.add_argument("--capital", type=float, default=100_000,
                         help="Initial capital (default: 100000)")
-    parser.add_argument("--slippage", type=float, default=0.02,
-                        help="Slippage percentage (default: 0.02 = 2%%)")
+    parser.add_argument("--slippage", type=float, default=0.005,
+                        help="Slippage percentage (default: 0.005 = 0.5%%)")
     parser.add_argument("--output", type=str, default=None,
                         help="Output JSON file for results")
     parser.add_argument("--verbose", "-v", action="store_true",
@@ -87,7 +88,7 @@ def main() -> None:
         engine = BacktestEngine(settings, slippage, args.capital)
 
         try:
-            result = engine.run(underlying, start_date, end_date, args.interval)
+            result = asyncio.run(engine.run(underlying, start_date, end_date, args.interval))
         except Exception:
             logging.exception("Backtest failed for %s", underlying)
             continue

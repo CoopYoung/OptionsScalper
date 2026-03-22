@@ -1,41 +1,26 @@
-# OptionsScalper — Hybrid AI Options Trader
+# OptionsScalper — AI-Powered 0DTE Options Trader
 
-AI-powered options trading system that uses **Claude Code as the trading brain** and **Alpaca as the broker**. Claude analyzes the market, manages positions, and executes trades autonomously during market hours — with a Python validation layer that enforces hard risk rules before any order reaches the broker.
-
-**Cost: $0 extra** — runs on your existing Claude Max subscription.
+AI-powered options trading system that uses a **local LLM (Ollama) or cloud API (Claude/GPT)** as the trading brain, with **Python handling all data gathering, signal computation, and risk validation**. Supports dual brokers: **Alpaca** (paper trading) and **Public.com** (live trading).
 
 ## Architecture
 
 ```
-Cron (every 10 min)
-  └─ run_cycle.sh
-       └─ claude -p "trading prompt" --allowedTools "Bash(...)"
-            ├─ python3 -m hybrid.cli account         → account state
-            ├─ python3 -m hybrid.cli positions        → open P&L
-            ├─ python3 -m hybrid.cli quotes SPY QQQ   → real-time prices
-            ├─ python3 -m hybrid.cli chain SPY ...     → options chain + Greeks
-            ├─ python3 -m hybrid.cli validate buy ...  → risk check (dry run)
-            ├─ python3 -m hybrid.cli order buy ...     → validated execution
-            └─ Telegram alert                          → trade notification
+Cron (every 10 min, market hours)
+  └─ python -m hybrid.orchestrator --mode paper
+       ├─ Python gathers all data:
+       │   ├─ Alpaca/Public.com: quotes, bars, option chains, Greeks
+       │   ├─ yfinance: VIX, sector performance
+       │   ├─ CNN: Fear & Greed index
+       │   └─ Finnhub: news, earnings calendar
+       ├─ Python computes technicals:
+       │   ├─ RSI(14), MACD(12/26/9), Bollinger Bands(20,2)
+       │   ├─ VWAP, volume ratio, momentum(5/20)
+       │   └─ Support/resistance levels
+       ├─ Formats ONE digest prompt (all data pre-digested)
+       ├─ Sends to LLM (Ollama local or API) → gets JSON decision
+       ├─ Validates via Python risk layer (cannot be bypassed)
+       └─ Executes via broker API + Telegram alert
 ```
-
-**Each cycle is stateless** — Claude reads fresh portfolio state from Alpaca every time. No position tracking dicts, no stale state, no accumulation bugs.
-
-### Three Validation Layers
-
-1. **Claude's prompt rules** — trading instructions, analysis process, risk awareness
-2. **Python validator** — hard limits on size, daily loss, timing, position count (cannot be bypassed)
-3. **Alpaca broker** — buying power, options approval level, PDT enforcement
-
-### What Claude Analyzes Each Cycle
-
-| Step | What It Does |
-|------|-------------|
-| Check state | Account equity, open positions, pending orders, daily P&L |
-| Manage positions | Current option quotes, take profit/stop loss/time exit decisions |
-| Scan setups | Price bars (OHLCV, VWAP), support/resistance, volume analysis |
-| Evaluate options | Chains with Greeks (delta, gamma, theta, vega, IV), spreads, liquidity |
-| Validate & execute | Dry-run validation → limit order placement → Telegram alert |
 
 ## Quick Start
 
@@ -45,48 +30,102 @@ git clone https://github.com/CoopYoung/OptionsScalper.git
 cd OptionsScalper
 pip install -r hybrid/requirements.txt
 
-# 2. Configure (edit .env with your Alpaca + Telegram credentials)
-cp hybrid/.env.example .env
+# 2. Configure
+cp .env.example .env    # Edit with your Alpaca + Telegram credentials
+# Also edit hybrid/.env for Finnhub, Public.com keys
 
-# 3. Test it
-python -m hybrid.cli account          # Verify Alpaca connection
-python -m hybrid.cli quotes SPY QQQ   # Check quotes
-./hybrid/run_cycle.sh --force         # Run one cycle (even outside market hours)
-
-# 4. Install cron for autonomous trading
-./hybrid/setup_cron.sh
+# 3. Verify connections
+python -m hybrid.cli account          # Check Alpaca
+python -m hybrid.cli quotes SPY QQQ   # Check market data
+python -m hybrid.cli vix              # Check VIX data
+python -m hybrid.cli market-overview  # VIX + F&G + sectors in one call
 ```
 
-### Requirements
+## Orchestrator Commands
 
-- **Claude Code** CLI installed and authenticated (Max subscription recommended)
-- **Alpaca** account (paper trading is free — no deposit needed)
-- **Python 3.10+**
-- Telegram bot (optional, for trade alerts)
+```bash
+# ── Testing & Development ────────────────────────────────────
+# See the digest prompt (no LLM call, no execution)
+python -m hybrid.orchestrator --mode paper --digest-only --force
+
+# Full pipeline with LLM but don't execute trades
+python -m hybrid.orchestrator --mode paper --dry-run --force
+
+# Full pipeline with execution (during market hours)
+python -m hybrid.orchestrator --mode paper
+
+# Force run outside market hours (for testing)
+python -m hybrid.orchestrator --mode paper --force
+
+# ── LLM Provider Options ─────────────────────────────────────
+# Local Ollama (default, $0/month)
+python -m hybrid.orchestrator --mode paper --provider ollama
+
+# Claude API (~$8/month with Haiku, ~$60/month with Sonnet)
+LLM_PROVIDER=anthropic ANTHROPIC_API_KEY=sk-... python -m hybrid.orchestrator --mode paper
+
+# OpenAI-compatible (OpenAI, Groq, Together, etc.)
+LLM_PROVIDER=openai OPENAI_API_KEY=sk-... python -m hybrid.orchestrator --mode paper
+
+# ── Broker Modes ──────────────────────────────────────────────
+# Paper trading on Alpaca (default)
+python -m hybrid.orchestrator --mode paper
+
+# Live trading on Public.com
+python -m hybrid.orchestrator --mode live
+
+# ── Cron Setup (autonomous trading) ──────────────────────────
+# Every 10 min during market hours (Mon-Fri 9:45 AM - 3:15 PM ET)
+*/10 9-15 * * 1-5 cd /path/to/OptionsScalper && python -m hybrid.orchestrator --mode paper >> /var/log/trader.log 2>&1
+
+# ── CLI Data Commands (26 commands) ──────────────────────────
+python -m hybrid.cli account             # Account info
+python -m hybrid.cli positions           # Open positions
+python -m hybrid.cli orders              # Order status
+python -m hybrid.cli quotes SPY QQQ IWM  # Real-time quotes
+python -m hybrid.cli bars SPY            # Price bars (5min default)
+python -m hybrid.cli chain SPY           # Options chain + Greeks
+python -m hybrid.cli expirations SPY     # Available expirations
+python -m hybrid.cli vix                 # VIX + regime classification
+python -m hybrid.cli fear-greed          # CNN Fear & Greed index
+python -m hybrid.cli sectors             # Sector performance + breadth
+python -m hybrid.cli market-overview     # VIX + F&G + sectors combined
+python -m hybrid.cli news                # Market headlines
+python -m hybrid.cli calendar            # Economic calendar
+python -m hybrid.cli earnings            # Earnings calendar
+python -m hybrid.cli indices VIX SPX     # Index quotes (Public.com)
+python -m hybrid.cli chain-greeks SPY    # Chain + Greeks (Public.com)
+```
 
 ## Project Structure
 
 ```
-hybrid/                         # Active trading system
-├── run_cycle.sh                # Cron entry point — invokes Claude Code
-├── setup_cron.sh               # One-command cron installer
-├── trading_prompt.md           # Claude's analysis instructions + rules
-├── cli.py                      # 14 CLI commands wrapping Alpaca API
-├── config.py                   # Settings from .env
+hybrid/                              # Active trading system (v2)
+├── orchestrator.py                  # Main entry point — cron-friendly, one cycle
+├── digest.py                        # Data gathering + technicals + prompt formatting
+├── llm.py                           # LLM abstraction (Ollama, Anthropic, OpenAI)
+├── config.py                        # Settings from .env
+├── cli.py                           # 26 CLI commands (data inspection)
+├── trading_prompt.md                # Trading instructions (for claude -p mode)
 ├── broker/
-│   ├── alpaca.py               # Alpaca REST wrapper
-│   └── tools.py                # Tool definitions (API fallback mode)
-├── ai/
-│   ├── analyst.py              # Claude API caller (fallback mode)
-│   └── prompts.py              # System prompt builder (fallback mode)
+│   ├── broker_base.py               # Broker Protocol + AlpacaBroker wrapper
+│   ├── alpaca.py                    # Alpaca REST wrapper (paper trading)
+│   ├── public_broker.py             # Public.com SDK wrapper (live trading)
+│   ├── public_data.py               # Public.com data (Greeks, indices)
+│   └── market_data.py               # External data (VIX, F&G, sectors, news)
 ├── risk/
-│   └── validator.py            # Hard rule enforcement
+│   └── validator.py                 # Hard rule enforcement (cannot be bypassed)
 ├── alerts/
-│   └── telegram.py             # Trade alerts + daily summaries
-└── logs/
-    └── audit.py                # JSONL audit trail
+│   └── telegram.py                  # Trade alerts + daily summaries
+├── logs/
+│   └── audit.py                     # JSONL audit trail
+└── backtest/                        # Backtesting infrastructure
+    ├── run_backtest.py              # Claude-in-the-loop backtester
+    ├── data_loader.py               # Historical data + Black-Scholes pricing
+    ├── snapshot_builder.py          # Synthesize CLI responses from history
+    └── mock_cli.py                  # Drop-in CLI for backtest mode
 
-src/                            # Original Python bot (deprecated)
+src/                                 # Original async Python bot (legacy)
 ```
 
 ## Risk Rules (Hard-Coded, Validator-Enforced)
@@ -97,26 +136,36 @@ src/                            # Original Python bot (deprecated)
 | Max daily loss | $500 | MAX_DAILY_LOSS |
 | Max concurrent positions | 3 | MAX_CONCURRENT_POSITIONS |
 | Max contracts per trade | 5 | MAX_CONTRACTS_PER_TRADE |
-| Min reward:risk ratio | 1.5:1 | MIN_REWARD_RISK_RATIO |
+| Confidence threshold | 55 | SIGNAL_CONFIDENCE_THRESHOLD |
 | Entry window | 9:45 AM - 3:00 PM ET | ENTRY_START_ET, ENTRY_CUTOFF_ET |
 | Hard close | 3:45 PM ET | HARD_CLOSE_ET |
-| Strategies allowed | Spreads + long options only | ALLOWED_STRATEGIES |
+| Profit target | 50% | PROFIT_TARGET_PCT |
+| Stop loss | 30% | STOP_LOSS_PCT |
+| Trailing stop | 15% from peak (after 30% gain) | TRAILING_STOP_PCT |
 
-## Modes
+## LLM Options
 
-| Mode | Command | Cost |
-|------|---------|------|
-| **Claude Code (recommended)** | `./hybrid/run_cycle.sh` | Free (Max subscription) |
-| Claude API (fallback) | `python -m hybrid --api` | ~$5-15/day pay-as-you-go |
-| Daily summary | `python -m hybrid --summary` | Free |
-| Direct CLI | `python -m hybrid.cli [command]` | Free |
+| Provider | Model | Monthly Cost (39 calls/day) | Quality |
+|----------|-------|---------------------------|---------|
+| **Ollama (local)** | 0xroyce/plutus | **$0** | Good for PoC |
+| Anthropic | Claude Haiku | ~$8 | Great |
+| Anthropic | Claude Sonnet | ~$60 | Best |
+| Google | Gemini 2.5 Flash | ~$3 | Good, fastest |
+| OpenAI | GPT-4o-mini | ~$2.50 | Good |
+| DeepSeek | V3 | ~$1.50 | Cheapest cloud |
+
+## Broker Comparison
+
+| Feature | Alpaca (paper) | Public.com (live) |
+|---------|---------------|-------------------|
+| Options commissions | $0 | $0 + rebates ($0.06-$0.18/contract) |
+| WebSocket streaming | Yes | No (REST only) |
+| Rate limit | 200 req/min | 10 req/s |
+| Paper trading | Yes | No |
+| Historical bars | Yes | No (use yfinance fallback) |
 
 ## Phase Plan
 
-- **Phase 1 (current):** Paper trading on Alpaca — validate Claude's decision-making
-- **Phase 2:** Swap to Public.com for live trading (commission rebates, native multi-leg support)
-- **Future:** Add market data tools (VIX, sentiment, economic calendar, options flow) for richer analysis
-
-## Background
-
-This project started as a complex async Python bot with an 8-factor signal ensemble, 3 concurrent loops, and 3000+ lines of stateful code. After weeks of debugging — including a $30.5k paper trading loss from a position accumulation bug — the architecture was redesigned around a simpler principle: **let Claude reason about the market, let Python enforce the rules, let the broker enforce reality.**
+- **Phase 1 (current):** Paper trading on Alpaca with local Ollama — validate decision-making
+- **Phase 2:** Upgrade to Claude API for better reasoning, continue paper trading
+- **Phase 3:** Switch to Public.com for live trading (commission rebates)

@@ -120,6 +120,9 @@ class TradingEngine:
             self._risk.set_day_start_value(state["day_start_value"])
             logger.info("Restored portfolio: $%s", state["portfolio_value"])
 
+        # Recover orphaned positions from previous crash/restart
+        await self._reconcile_positions()
+
         # Connect to Alpaca
         connected = await self._client.connect()
         if not connected:
@@ -269,24 +272,12 @@ class TradingEngine:
         # Persist state
         self._persist_state()
 
-        # Send daily P&L summary via Telegram
-        risk_status = self._risk.status()
-        summary = (
-            f"End of Day Summary\n"
-            f"{'=' * 30}\n"
-            f"P&L: ${float(risk_status.get('daily_pnl', 0)):+,.2f}\n"
-            f"Trades: {risk_status.get('trades_today', 0)}\n"
-            f"Win Rate: {risk_status.get('win_rate', 'N/A')}\n"
-            f"Portfolio: ${float(risk_status.get('portfolio_value', 0)):,.2f}"
-        )
-        await self._send_alert(summary)
-
-        # Generate and send analytics report
+        # Generate analytics report
+        analytics_report_text = ""
         try:
             report = self._analyzer.daily_report()
             if report.get("total_trades", 0) > 0:
-                analytics_msg = self._analyzer.format_telegram_summary(report)
-                await self._send_alert(analytics_msg)
+                analytics_report_text = self._analyzer.format_telegram_summary(report)
                 logger.info(
                     "Daily analytics: %d trades, %.1f%% win rate, $%.2f P&L",
                     report["total_trades"],
@@ -295,6 +286,23 @@ class TradingEngine:
                 )
         except Exception:
             logger.exception("Failed to generate daily analytics report")
+
+        # Send daily P&L summary via Telegram (with analytics appended)
+        risk_status = self._risk.status()
+        daily_pnl = Decimal(str(risk_status.get("daily_pnl", 0)))
+        trades_today = risk_status.get("trades_today", 0)
+        win_rate_val = risk_status.get("win_rate", 0)
+        if isinstance(win_rate_val, str):
+            win_rate_val = 0.0
+        portfolio_val = Decimal(str(risk_status.get("portfolio_value", 0)))
+
+        await self._alerts.daily_summary(
+            total_pnl=daily_pnl,
+            trades=trades_today,
+            win_rate=float(win_rate_val),
+            portfolio=portfolio_val,
+            report=analytics_report_text,
+        )
 
         # Attempt weight recalibration (no-op if disabled or insufficient data)
         try:
@@ -331,20 +339,36 @@ class TradingEngine:
             logger.debug("Alert send failed: %s", message[:50])
 
     async def stop(self) -> None:
-        """Graceful shutdown."""
+        """Graceful shutdown — persist positions first, then attempt to close."""
         logger.info("Shutting down...")
         self._running = False
 
-        # Close all positions
-        await self._close_all_positions("Engine shutdown")
-
-        # Persist state
+        # Persist open positions FIRST (in case close fails or is interrupted)
+        self._persist_open_positions()
         self._persist_state()
 
-        await self._optionsai.close()
-        await self._stream.stop()
-        await self._cache.close()
-        self._db.close()
+        # Attempt to close all positions (best-effort)
+        try:
+            await self._close_all_positions("Engine shutdown")
+        except Exception:
+            logger.exception("Error closing positions during shutdown — positions persisted for recovery")
+
+        # If all positions were closed, clear the persisted records
+        if not self._open_positions:
+            self._db.clear_open_positions()
+
+        try:
+            await self._optionsai.close()
+        except Exception:
+            pass
+        try:
+            await self._stream.stop()
+        except Exception:
+            pass
+        try:
+            await self._cache.close()
+        except Exception:
+            pass
 
         # Stop Telegram bot
         if hasattr(self, '_telegram_bot'):
@@ -353,43 +377,242 @@ class TradingEngine:
             except Exception:
                 pass
 
+        await self._alerts.send("🔴 Bot stopped — shutdown complete")
+        await self._alerts.close()
+        self._db.close()
         logger.info("Shutdown complete")
 
     # ── Pre-Market Setup ──────────────────────────────────────
 
     async def _pre_market_setup(self) -> None:
-        """Load macro calendar, refresh initial data."""
+        """Run health checks, load macro calendar, refresh initial data."""
         logger.info("Pre-market setup...")
 
-        # Load macro calendar
-        events = await self._macro.load_today()
-        if events:
-            high = [e for e in events if e.impact.value == "high"]
-            if high:
-                logger.warning("HIGH IMPACT EVENTS TODAY: %s", [e.name for e in high])
-                await self._alerts.send(
-                    f"HIGH IMPACT: {', '.join(e.name for e in high)}",
-                )
+        # ── Health checks ──────────────────────────────────────
+        checks: dict[str, bool] = {}
 
-        # Initial VIX check
-        vix_signals = await self._vix.update()
-        logger.info("VIX regime: %s (%.1f)", vix_signals.regime.value, vix_signals.vix_level)
+        # 1. Alpaca connection + equity
+        try:
+            account = await self._client.get_account()
+            if account:
+                equity = Decimal(account["equity"])
+                self._risk.set_portfolio_value(equity)
+                checks["Alpaca connected"] = True
+                checks[f"Equity ${equity:,.2f}"] = float(equity) >= 100
+                # PDT check (only relevant if <$25k)
+                if float(equity) < 25000:
+                    pdt_status = self._risk.status().get("pdt", {})
+                    pdt_remaining = pdt_status.get("remaining", 0)
+                    checks[f"PDT budget ({pdt_remaining} remaining)"] = pdt_remaining > 0
+                else:
+                    checks["PDT exempt (>$25k)"] = True
+            else:
+                checks["Alpaca connected"] = False
+        except Exception:
+            logger.exception("Alpaca health check failed")
+            checks["Alpaca connected"] = False
 
-        # Load OptionsAI earnings calendar
-        earnings = await self._optionsai.load_earnings()
-        if earnings:
-            logger.warning(
-                "EARNINGS TODAY: %s",
-                [f"{e.symbol} ({e.time})" for e in earnings],
-            )
+        # 2. Redis connectivity
+        try:
+            redis_ok = await self._cache.ping()
+            checks["Redis connected"] = redis_ok
+        except Exception:
+            checks["Redis connected"] = False
 
-        # Load options chains
+        # 3. Load macro calendar + check
+        try:
+            events = await self._macro.load_today()
+            if events:
+                high = [e for e in events if e.impact.value == "high"]
+                if high:
+                    logger.warning("HIGH IMPACT EVENTS TODAY: %s", [e.name for e in high])
+                    checks[f"Macro events ({len(high)} high-impact)"] = True
+                else:
+                    checks["Macro calendar loaded"] = True
+            else:
+                checks["Macro calendar loaded"] = True
+            checks["No macro blackout"] = not self._macro.is_blackout()
+        except Exception:
+            logger.exception("Macro calendar failed")
+            checks["Macro calendar loaded"] = False
+
+        # 4. VIX regime check
+        try:
+            vix_signals = await self._vix.update()
+            regime = vix_signals.regime.value
+            vix_level = vix_signals.vix_level
+            checks[f"VIX {vix_level:.1f} ({regime})"] = regime != "crisis"
+            logger.info("VIX regime: %s (%.1f)", regime, vix_level)
+        except Exception:
+            logger.exception("VIX check failed")
+            checks["VIX data"] = False
+
+        # 5. Load OptionsAI earnings calendar
+        try:
+            earnings = await self._optionsai.load_earnings()
+            if earnings:
+                symbols = [f"{e.symbol} ({e.time})" for e in earnings]
+                logger.warning("EARNINGS TODAY: %s", symbols)
+                checks[f"Earnings ({len(earnings)} today)"] = True
+            else:
+                checks["No earnings conflicts"] = True
+        except Exception:
+            checks["OptionsAI earnings"] = False
+
+        # 6. Load options chains
+        chains_loaded = 0
         for underlying in self._settings.underlying_list:
-            await self._chain_mgr.refresh_chain(underlying)
+            try:
+                await self._chain_mgr.refresh_chain(underlying)
+                chain = self._chain_mgr.get_chain(underlying)
+                if chain:
+                    chains_loaded += 1
+            except Exception:
+                logger.exception("Failed to load chain for %s", underlying)
+        total = len(self._settings.underlying_list)
+        checks[f"Options chains ({chains_loaded}/{total})"] = chains_loaded == total
+
+        # ── Report results ─────────────────────────────────────
+        all_ok = all(checks.values())
+        for check, passed in checks.items():
+            log_fn = logger.info if passed else logger.warning
+            log_fn("Health check: %s %s", "✓" if passed else "✗", check)
+
+        await self._alerts.startup_status(checks)
+
+        if not all_ok:
+            failed = [k for k, v in checks.items() if not v]
+            logger.warning("Pre-market issues: %s", failed)
 
         # Reset daily state
         self._risk.reset_daily()
         self._internals.reset_daily()
+
+    # ── Position Recovery ──────────────────────────────────────
+
+    async def _reconcile_positions(self) -> None:
+        """Reconcile local state with Alpaca + DB after restart.
+
+        Handles three scenarios:
+        1. Position in DB + on Alpaca → restore to _open_positions (normal recovery)
+        2. Position in DB + NOT on Alpaca → already closed, clean up DB
+        3. Position on Alpaca + NOT in DB → orphan, adopt for exit management
+        """
+        # Load persisted positions from DB
+        db_positions = self._db.load_open_positions()
+        db_symbols = {p["contract_symbol"] for p in db_positions}
+
+        # Get actual positions from Alpaca
+        alpaca_positions = await self._client.get_positions() or []
+        # Filter to option positions only (symbol format: SPY260320C00550000)
+        alpaca_option_positions = [
+            p for p in alpaca_positions
+            if len(p.get("symbol", "")) > 10  # Option symbols are long
+        ]
+        alpaca_symbols = {p["symbol"] for p in alpaca_option_positions}
+
+        recovered = 0
+        cleaned = 0
+        orphaned = 0
+
+        # Scenario 1: Restore positions that exist in both DB and Alpaca
+        for pos_data in db_positions:
+            symbol = pos_data["contract_symbol"]
+            if symbol in alpaca_symbols:
+                entry_time = datetime.fromisoformat(pos_data["entry_time"])
+                entry_premium = Decimal(pos_data["entry_premium"])
+                peak_premium = Decimal(pos_data.get("peak_premium", pos_data["entry_premium"]))
+                entry_spot = pos_data.get("entry_spot", 0) or 0
+                peak_spot = pos_data.get("peak_spot", entry_spot) or entry_spot
+
+                self._open_positions[symbol] = {
+                    "underlying": pos_data["underlying"],
+                    "option_type": pos_data["option_type"],
+                    "strike": pos_data["strike"],
+                    "entry_premium": entry_premium,
+                    "peak_premium": peak_premium,
+                    "qty": pos_data["contracts"],
+                    "entry_time": entry_time,
+                    "order_id": pos_data.get("order_id", ""),
+                    "contract": None,  # Greeks not persisted — will update on next chain refresh
+                    "confidence": pos_data.get("entry_confidence", 0),
+                    "entry_spot": entry_spot,
+                    "peak_spot": peak_spot,
+                    "max_favorable_pnl": Decimal("0"),
+                    "max_adverse_pnl": Decimal("0"),
+                }
+                recovered += 1
+                logger.info("Recovered position: %s (%d contracts @ $%s)",
+                            symbol, pos_data["contracts"], pos_data["entry_premium"])
+
+        # Scenario 2: Clean up DB positions that no longer exist on Alpaca
+        for pos_data in db_positions:
+            symbol = pos_data["contract_symbol"]
+            if symbol not in alpaca_symbols:
+                self._db.remove_open_position(symbol)
+                cleaned += 1
+                logger.warning("Cleaned stale DB position: %s (not on Alpaca)", symbol)
+
+        # Scenario 3: Adopt orphaned Alpaca positions not tracked in DB
+        for alpaca_pos in alpaca_option_positions:
+            symbol = alpaca_pos["symbol"]
+            if symbol not in db_symbols and symbol not in self._open_positions:
+                qty = int(alpaca_pos.get("qty", 0))
+                if qty <= 0:
+                    continue
+
+                avg_entry = Decimal(alpaca_pos.get("avg_entry_price", "0"))
+                # Parse underlying from symbol (first 3-4 chars before date)
+                underlying = self._parse_underlying(symbol)
+                option_type = "call" if "C" in symbol[6:] else "put"
+
+                self._open_positions[symbol] = {
+                    "underlying": underlying,
+                    "option_type": option_type,
+                    "strike": "0",  # Not available from Alpaca position API
+                    "entry_premium": avg_entry,
+                    "peak_premium": avg_entry,
+                    "qty": qty,
+                    "entry_time": datetime.now(timezone.utc),  # Approximate
+                    "order_id": "",
+                    "contract": None,
+                    "confidence": 0,
+                    "entry_spot": 0,
+                    "peak_spot": 0,
+                    "max_favorable_pnl": Decimal("0"),
+                    "max_adverse_pnl": Decimal("0"),
+                }
+                orphaned += 1
+                logger.warning(
+                    "Adopted orphan position: %s (%d contracts @ $%s) — will manage exits",
+                    symbol, qty, avg_entry,
+                )
+
+        if recovered or cleaned or orphaned:
+            logger.info(
+                "Position reconciliation: %d recovered, %d cleaned, %d orphans adopted",
+                recovered, cleaned, orphaned,
+            )
+            if orphaned:
+                await self._send_alert(
+                    f"⚠️ Adopted {orphaned} orphan position(s) from Alpaca — "
+                    "managing exits with approximate entry data"
+                )
+        else:
+            logger.info("Position reconciliation: no positions to recover")
+
+    @staticmethod
+    def _parse_underlying(option_symbol: str) -> str:
+        """Extract underlying ticker from OCC option symbol.
+
+        Format: SPY260320C00550000 → SPY
+        The underlying is everything before the 6-digit date.
+        """
+        # Find where the date starts (6 consecutive digits)
+        for i in range(len(option_symbol)):
+            if option_symbol[i:i+6].isdigit():
+                return option_symbol[:i]
+        return option_symbol[:3]  # Fallback
 
     # ── Fast Loop (5s): Exits + Tick Momentum ─────────────────
 
@@ -425,14 +648,24 @@ class TradingEngine:
                     if snap:
                         current_premium = snap.mid
                     else:
-                        continue
+                        # No quote available — still check time-based exits
+                        # (hard close, max hold) using last known premium
+                        current_premium = pos.get("last_premium", pos["entry_premium"])
+                        logger.warning(
+                            "No quote for %s, using last known premium $%.2f",
+                            symbol, float(current_premium),
+                        )
                 else:
                     bid = Decimal(str(quote["bid"]))
                     ask = Decimal(str(quote["ask"]))
                     current_premium = (bid + ask) / 2 if bid > 0 and ask > 0 else Decimal("0")
 
-                if current_premium <= 0:
-                    continue
+                # Track last known premium for fallback
+                if current_premium > 0:
+                    pos["last_premium"] = current_premium
+                else:
+                    # Zero premium: use last known, or entry as final fallback
+                    current_premium = pos.get("last_premium", pos["entry_premium"])
 
                 entry_premium = pos["entry_premium"]
                 peak_premium = pos.get("peak_premium", entry_premium)
@@ -589,6 +822,23 @@ class TradingEngine:
                 info.get("contract"),
             )
 
+            # Persist to DB for crash recovery
+            self._db.save_open_position(
+                contract_symbol=symbol,
+                underlying=info["underlying"],
+                option_type=info["option_type"],
+                strike=str(info["strike"]),
+                side=info["direction"],
+                contracts=qty,
+                entry_premium=filled_price,
+                entry_time=datetime.now(timezone.utc),
+                order_id=order_id,
+                confidence=info.get("confidence", 0),
+                peak_premium=filled_price,
+                entry_spot=entry_spot,
+                peak_spot=entry_spot,
+            )
+
             logger.info(
                 "FILLED BUY: %s %d @ $%.2f (order=%s)",
                 symbol, qty, float(filled_price), order_id,
@@ -601,6 +851,9 @@ class TradingEngine:
                 premium=float(filled_price),
                 confidence=info.get("confidence", 0),
                 reason=info.get("reason", ""),
+                score_breakdown=info.get("score_breakdown", {}),
+                delta=info.get("delta", 0),
+                spot_price=info.get("spot_price", 0),
             )
 
         self._pending_orders.pop(order_id, None)
@@ -617,7 +870,7 @@ class TradingEngine:
                     self._macro.update(),
                     self._internals.update(),
                     self._update_gex(),
-                    self._flow.update(),
+                    self._update_flow(),
                     self._update_optionsai(),
                     return_exceptions=True,
                 )
@@ -639,11 +892,23 @@ class TradingEngine:
             await asyncio.sleep(self._settings.quant_loop_seconds)
 
     async def _update_gex(self) -> None:
-        """Update GEX for all underlyings."""
+        """Update GEX and chain IV for all underlyings."""
         for underlying in self._settings.underlying_list:
             chain = self._chain_mgr.get_chain(underlying)
             price = self._last_prices.get(underlying, Decimal("0"))
             await self._gex.update(underlying, chain, float(price))
+            # Piggyback: update per-underlying chain IV percentile
+            if chain:
+                self._vix.update_chain_iv(underlying, chain)
+
+    async def _update_flow(self) -> None:
+        """Update flow for all underlyings, passing aggregated chain data."""
+        all_chains = []
+        for underlying in self._settings.underlying_list:
+            chain = self._chain_mgr.get_chain(underlying)
+            if chain:
+                all_chains.extend(chain)
+        await self._flow.update(all_chains)
 
     async def _update_optionsai(self) -> None:
         """Update OptionsAI signals for all underlyings."""
@@ -736,7 +1001,10 @@ class TradingEngine:
         # Risk check
         can_trade, reason = self._risk.can_trade(signal)
         if not can_trade:
-            logger.debug("Risk blocked %s %s: %s", underlying, signal.direction.value, reason)
+            logger.info("Risk blocked %s %s: %s", underlying, signal.direction.value, reason)
+            await self._alerts.signal_rejected(
+                underlying, reason, confidence=signal.confidence,
+            )
             return
 
         # Compute position size
@@ -772,6 +1040,9 @@ class TradingEngine:
             "limit_price": (bid + ask) / 2,
             "confidence": signal.confidence,
             "reason": signal.reason,
+            "score_breakdown": signal.score_breakdown or {},
+            "delta": contract.delta,
+            "spot_price": float(self._last_prices.get(signal.underlying, 0)),
             "contract": contract,
             "greeks_json": json.dumps({
                 "delta": contract.delta,
@@ -846,6 +1117,29 @@ class TradingEngine:
             limit_price=limit_price,
         )
 
+        if not order:
+            # Sell order failed — escalate to force close via Alpaca
+            logger.warning(
+                "Limit sell failed for %s, attempting force close", symbol,
+            )
+            result = await self._client.close_position(symbol)
+            if result:
+                # Force close accepted — clean up position tracking
+                pnl = (current_premium - entry_premium) * qty * 100
+                self._risk.record_close(symbol, pnl)
+                await self._stream.unsubscribe_options([symbol])
+                self._open_positions.pop(symbol, None)
+                self._db.remove_open_position(symbol)
+                logger.info(
+                    "FORCE CLOSED: %s PnL=$%.2f (%s)", symbol, float(pnl), reason,
+                )
+            else:
+                logger.error(
+                    "STUCK POSITION: %s — both limit sell and force close failed",
+                    symbol,
+                )
+            return
+
         if order:
             pnl = (current_premium - entry_premium) * qty * 100
             self._risk.record_close(symbol, pnl)
@@ -874,12 +1168,20 @@ class TradingEngine:
 
             await self._stream.unsubscribe_options([symbol])
             self._open_positions.pop(symbol, None)
+            self._db.remove_open_position(symbol)
 
             logger.info(
                 "CLOSED: %s %d @ $%.2f PnL=$%.2f (%s) hold=%s urgency=%s",
                 symbol, qty, float(current_premium), float(pnl), reason,
                 str(hold_time).split(".")[0], urgency,
             )
+            # Compute day P&L for alert context
+            day_pnl = sum(
+                float(p.get("pnl", 0))
+                for p in self._open_positions.values()
+                if "pnl" in p
+            ) + float(pnl)
+
             await self._alerts.trade_closed(
                 underlying=underlying,
                 strike=str(pos["strike"]),
@@ -888,22 +1190,39 @@ class TradingEngine:
                 entry_premium=float(entry_premium),
                 exit_premium=float(current_premium),
                 pnl=float(pnl),
+                pnl_pct=float((current_premium - entry_premium) / entry_premium) if entry_premium else 0,
                 hold_time=str(hold_time).split(".")[0],
                 reason=reason,
+                underlying_move_pct=round(underlying_move_pct, 4),
+                day_pnl=day_pnl,
             )
 
     async def _close_all_positions(self, reason: str) -> None:
-        """Close all open positions."""
+        """Close all open positions — escalates to force close on failure."""
         for symbol in list(self._open_positions.keys()):
             try:
                 snapshots = await self._client.get_snapshots([symbol])
                 snap = snapshots.get(symbol)
                 if snap:
-                    await self._close_position(symbol, snap.mid, reason)
+                    await self._close_position(
+                        symbol, snap.mid, reason, urgency="immediate",
+                    )
                 else:
-                    # Force close via Alpaca
+                    # No quote — force close via Alpaca with cleanup
+                    logger.warning("No snapshot for %s, force closing", symbol)
                     await self._client.close_position(symbol)
+                    pos = self._open_positions.get(symbol, {})
+                    entry_premium = pos.get("entry_premium", Decimal("0"))
+                    last_premium = pos.get("last_premium", entry_premium)
+                    qty = pos.get("qty", 1)
+                    pnl = (last_premium - entry_premium) * qty * 100
+                    self._risk.record_close(symbol, pnl)
+                    self._db.remove_open_position(symbol)
                     self._open_positions.pop(symbol, None)
+                    logger.info(
+                        "FORCE CLOSED: %s est_PnL=$%.2f (%s)",
+                        symbol, float(pnl), reason,
+                    )
             except Exception:
                 logger.exception("Error closing position %s", symbol)
 
@@ -968,6 +1287,28 @@ class TradingEngine:
             )
         except Exception:
             logger.exception("Failed to persist state")
+
+    def _persist_open_positions(self) -> None:
+        """Persist all open positions to DB for crash recovery."""
+        for symbol, pos in self._open_positions.items():
+            try:
+                self._db.save_open_position(
+                    contract_symbol=symbol,
+                    underlying=pos["underlying"],
+                    option_type=pos["option_type"],
+                    strike=str(pos["strike"]),
+                    side=pos.get("direction", "BUY_CALL"),
+                    contracts=pos["qty"],
+                    entry_premium=pos["entry_premium"],
+                    entry_time=pos["entry_time"],
+                    order_id=pos.get("order_id", ""),
+                    confidence=pos.get("confidence", 0),
+                    peak_premium=pos.get("peak_premium", pos["entry_premium"]),
+                    entry_spot=pos.get("entry_spot", 0),
+                    peak_spot=pos.get("peak_spot", 0),
+                )
+            except Exception:
+                logger.exception("Failed to persist position %s", symbol)
 
     # ── Status ────────────────────────────────────────────────
 

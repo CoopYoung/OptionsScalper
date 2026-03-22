@@ -91,7 +91,21 @@ class TradeDB:
             VALUES (1, '10000', '0', '10000', 0)
         """)
         self._conn.commit()
+        self._migrate_open_positions_columns()
         self._migrate_analytics_columns()
+
+    def _migrate_open_positions_columns(self) -> None:
+        """Add entry_spot/peak_spot to open_positions table (migration-safe)."""
+        assert self._conn is not None
+        for col_name, col_type in [
+            ("entry_spot", "REAL DEFAULT 0"),
+            ("peak_spot", "REAL DEFAULT 0"),
+        ]:
+            try:
+                self._conn.execute(f"ALTER TABLE open_positions ADD COLUMN {col_name} {col_type}")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+        self._conn.commit()
 
     def _migrate_analytics_columns(self) -> None:
         """Add analytics columns to trades table (migration-safe)."""
@@ -222,3 +236,54 @@ class TradeDB:
             "day_start_value": Decimal(row[2]),
             "daily_trades": int(row[3]),
         }
+
+    # ── Open Position Persistence (crash recovery) ─────────────
+
+    def save_open_position(
+        self, contract_symbol: str, underlying: str, option_type: str,
+        strike: str, side: str, contracts: int, entry_premium: Decimal,
+        entry_time: datetime, order_id: str = "", confidence: int = 0,
+        peak_premium: Decimal = Decimal("0"),
+        entry_spot: float = 0.0, peak_spot: float = 0.0,
+    ) -> None:
+        """Persist an open position to DB for crash recovery."""
+        assert self._conn is not None
+        self._conn.execute(
+            """INSERT OR REPLACE INTO open_positions
+               (contract_symbol, underlying, option_type, strike, side,
+                contracts, entry_premium, entry_time, order_id,
+                entry_confidence, peak_premium, entry_spot, peak_spot)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (contract_symbol, underlying, option_type, strike, side,
+             contracts, str(entry_premium), entry_time.isoformat(),
+             order_id, confidence, str(peak_premium),
+             entry_spot, peak_spot),
+        )
+        self._conn.commit()
+
+    def remove_open_position(self, contract_symbol: str) -> None:
+        """Remove a closed position from the open_positions table."""
+        assert self._conn is not None
+        self._conn.execute(
+            "DELETE FROM open_positions WHERE contract_symbol = ?",
+            (contract_symbol,),
+        )
+        self._conn.commit()
+
+    def load_open_positions(self) -> list[dict]:
+        """Load all persisted open positions (for crash recovery)."""
+        assert self._conn is not None
+        cur = self._conn.execute(
+            """SELECT contract_symbol, underlying, option_type, strike, side,
+                      contracts, entry_premium, entry_time, order_id,
+                      entry_confidence, peak_premium, entry_spot, peak_spot
+               FROM open_positions"""
+        )
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+    def clear_open_positions(self) -> None:
+        """Clear all persisted open positions (after clean shutdown)."""
+        assert self._conn is not None
+        self._conn.execute("DELETE FROM open_positions")
+        self._conn.commit()

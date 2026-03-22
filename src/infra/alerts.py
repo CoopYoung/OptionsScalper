@@ -51,14 +51,26 @@ class AlertManager:
         premium = kwargs.get("premium", 0)
         confidence = kwargs.get("confidence", 0)
         reason = kwargs.get("reason", "")
-        msg = (f"*Trade Opened*\n"
-               f"Underlying: `{underlying}`\n"
-               f"Type: {option_type} @ ${strike}\n"
-               f"Contracts: {contracts}\n"
-               f"Premium: ${premium}\n"
-               f"Confidence: {confidence}")
+        score_breakdown = kwargs.get("score_breakdown", {})
+        delta = kwargs.get("delta", 0)
+        spot_price = kwargs.get("spot_price", 0)
+
+        msg = (
+            f"📈 *ENTRY* `{underlying}` {option_type.upper()} ${strike}\n"
+            f"Contracts: {contracts} @ ${premium:.2f}\n"
+            f"Confidence: {confidence}% | Delta: {delta:.2f}\n"
+            f"Spot: ${spot_price:.2f}"
+        )
+        if score_breakdown:
+            factors = []
+            for factor, score in sorted(score_breakdown.items(), key=lambda x: abs(x[1]), reverse=True):
+                if abs(score) >= 0.05:
+                    arrow = "↑" if score > 0 else "↓"
+                    factors.append(f"  {factor}: {arrow}{abs(score):.2f}")
+            if factors:
+                msg += "\n*Factors:*\n" + "\n".join(factors[:5])
         if reason:
-            msg += f"\nReason: {reason}"
+            msg += f"\n_{reason}_"
         await self.send(msg)
 
     async def trade_closed(self, **kwargs) -> None:
@@ -68,29 +80,75 @@ class AlertManager:
         hold_time = kwargs.get("hold_time", "")
         entry_premium = kwargs.get("entry_premium", 0)
         exit_premium = kwargs.get("exit_premium", 0)
-        sign = "+" if float(pnl) >= 0 else ""
-        msg = (f"*Trade Closed*\n"
-               f"Underlying: `{underlying}`\n"
-               f"Entry: ${entry_premium} → Exit: ${exit_premium}\n"
-               f"P&L: {sign}${pnl}\n"
-               f"Hold: {hold_time}\n"
-               f"Reason: {reason}")
+        pnl_pct = kwargs.get("pnl_pct", 0)
+        underlying_move = kwargs.get("underlying_move_pct", 0)
+        day_pnl = kwargs.get("day_pnl", 0)
+
+        pnl_float = float(pnl)
+        emoji = "✅" if pnl_float >= 0 else "❌"
+        sign = "+" if pnl_float >= 0 else ""
+        day_sign = "+" if float(day_pnl) >= 0 else ""
+
+        msg = (
+            f"{emoji} *EXIT* `{underlying}`\n"
+            f"${entry_premium:.2f} → ${exit_premium:.2f} ({sign}{pnl_pct:.1%})\n"
+            f"P&L: {sign}${pnl_float:.2f} | Hold: {hold_time}\n"
+            f"Reason: {reason}\n"
+            f"Day P&L: {day_sign}${float(day_pnl):.2f}"
+        )
+        if underlying_move:
+            msg += f" | Underlying: {'+' if underlying_move >= 0 else ''}{underlying_move:.2%}"
         await self.send(msg)
 
-    async def circuit_breaker_triggered(self, reason: str) -> None:
-        await self.send(f"*CIRCUIT BREAKER*\nReason: {reason}")
+    async def signal_rejected(self, underlying: str, reason: str,
+                              confidence: int = 0) -> None:
+        """Notify when a signal is generated but blocked by risk/gate checks."""
+        msg = (
+            f"🚫 *Signal Rejected* `{underlying}`\n"
+            f"Confidence: {confidence}%\n"
+            f"Reason: {reason}"
+        )
+        await self.send(msg)
+
+    async def circuit_breaker_triggered(self, reason: str,
+                                        resume_time: str = "") -> None:
+        msg = f"🛑 *CIRCUIT BREAKER TRIGGERED*\nReason: {reason}"
+        if resume_time:
+            msg += f"\nResumes: {resume_time}"
+        await self.send(msg)
+
+    async def vix_alert(self, vix: float, regime: str, action: str) -> None:
+        """Alert on VIX regime changes that affect trading."""
+        emoji = "🔴" if regime == "crisis" else "🟡" if regime == "high" else "🟢"
+        msg = f"{emoji} *VIX Alert*\nVIX: {vix:.1f} | Regime: {regime}\nAction: {action}"
+        await self.send(msg)
 
     async def daily_summary(self, total_pnl: Decimal, trades: int,
-                            win_rate: float, portfolio: Decimal) -> None:
-        msg = (f"*Daily Summary*\n"
-               f"P&L: ${total_pnl}\n"
-               f"Trades: {trades}\n"
-               f"Win rate: {win_rate:.1%}\n"
-               f"Portfolio: ${portfolio}")
+                            win_rate: float, portfolio: Decimal,
+                            report: str = "") -> None:
+        sign = "+" if total_pnl >= 0 else ""
+        msg = (
+            f"📊 *Daily Summary*\n"
+            f"P&L: {sign}${total_pnl:.2f}\n"
+            f"Trades: {trades} | Win Rate: {win_rate:.1%}\n"
+            f"Portfolio: ${portfolio:,.2f}"
+        )
+        if report:
+            msg += f"\n\n{report}"
         await self.send(msg)
 
+    async def startup_status(self, checks: dict[str, bool]) -> None:
+        """Send pre-market health check results on startup."""
+        lines = ["🏁 *Bot Starting*"]
+        for check, passed in checks.items():
+            status = "✅" if passed else "❌"
+            lines.append(f"  {status} {check}")
+        all_ok = all(checks.values())
+        lines.append(f"\n{'Ready to trade' if all_ok else 'ISSUES DETECTED — check logs'}")
+        await self.send("\n".join(lines))
+
     async def quant_alert(self, alert_type: str, message: str) -> None:
-        await self.send(f"*{alert_type}*\n{message}")
+        await self.send(f"📡 *{alert_type}*\n{message}")
 
     async def close(self) -> None:
         if self._session and not self._session.closed:

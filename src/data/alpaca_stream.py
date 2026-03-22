@@ -154,11 +154,16 @@ class AlpacaStream:
         while self._running:
             try:
                 from alpaca.data.live.stock import StockDataStream
+                from alpaca.data.enums import DataFeed
+
+                # alpaca-py expects DataFeed enum, not raw string
+                feed_str = self._settings.alpaca_data_feed.lower()
+                feed_enum = DataFeed.SIP if feed_str == "sip" else DataFeed.IEX
 
                 self._equity_ws = StockDataStream(
                     api_key=self._settings.alpaca_api_key,
                     secret_key=self._settings.alpaca_secret_key,
-                    feed=self._settings.alpaca_data_feed,
+                    feed=feed_enum,
                 )
 
                 # Subscribe to trades for all underlyings

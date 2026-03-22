@@ -37,6 +37,15 @@ class PriceCache:
             logger.warning("Redis unavailable, using memory-only cache")
             self._redis = None
 
+    async def ping(self) -> bool:
+        """Check Redis connectivity. Returns True if connected."""
+        if not self._redis:
+            return False
+        try:
+            return await self._redis.ping()
+        except Exception:
+            return False
+
     async def get(self, key: str) -> Optional[str]:
         if key in self._memory:
             return self._memory[key]
