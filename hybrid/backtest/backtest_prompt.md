@@ -53,10 +53,17 @@ python3 -m hybrid.backtest.mock_cli record-pnl -52.30              # Record clos
 2. Max daily loss: $1,000 — stop trading if reached
 3. Max concurrent positions: 3
 4. Max contracts per trade: 5
-5. Min reward:risk ratio: 1.5:1
-6. Entry window: 09:45 - 15:00 ET only
-7. Hard close all positions by: 15:45 ET
-8. NEVER enter naked short options — defined-risk only (spreads or long options)
+5. Entry window: 09:45 - 15:00 ET only
+6. Hard close all positions by: 15:45 ET
+7. NEVER enter naked short options — defined-risk only (long options or debit spreads)
+
+## Trade Approach
+- **Prefer single-leg long options** (calls or puts) for 0DTE. They are simpler and the risk is just the premium paid.
+- Debit spreads are OK but not required. Don't force a spread if a straight call/put has a clear setup.
+- Target: +30% to +50% of premium paid (e.g., buy at $2.00, target $2.60-$3.00)
+- Stop: -40% of premium paid (e.g., buy at $2.00, stop at $1.20)
+- Look for delta 0.25-0.45 for directional plays
+- You have $69,500 in this account — a $300-$500 option trade is well within risk limits
 
 ## Your Analysis Process (follow this order)
 
@@ -102,16 +109,15 @@ For each open position:
   * Alignment with macro context from Step 2
   * NOT: choppy, low-volume, indecisive price action
 
-### Step 5: Evaluate Options (only if Step 4 found something)
-- Get expirations: `python3 -m hybrid.backtest.mock_cli expirations SPY`
-- **Prefer chain-greeks**: `python3 -m hybrid.backtest.mock_cli chain-greeks SPY --expiry {EXPIRY_DATE} --type call`
-- Fallback: `python3 -m hybrid.backtest.mock_cli chain SPY --expiry {EXPIRY_DATE} --type call`
+### Step 5: Pick a Contract (only if Step 4 found something)
+- Get chain: `python3 -m hybrid.backtest.mock_cli chain-greeks SPY --expiry {EXPIRY_DATE} --type call`
+  (swap `call` for `put` if bearish)
+- **Pick a single-leg long option** — don't overcomplicate with spreads unless you have a strong reason
 - Look for:
-  * Tight bid-ask spreads (< 10% of mid price)
-  * Delta between 0.25-0.45 for directional plays
-  * Good liquidity (open interest > 100)
-  * IV — compare to recent levels
-  * 0-3 DTE
+  * Delta 0.25-0.45 (the sweet spot for directional plays)
+  * Tight bid-ask spread (< 10% of mid price)
+  * Premium $1.50-$5.00 per contract (risk = premium × 100)
+  * Example: if SPY is at $666 and trending up, buy the $668 call at $3.50 = $350 risk
 
 ### Step 6: Validate Before Executing
 - Dry run: `python3 -m hybrid.backtest.mock_cli validate buy SYMBOL QTY --price PRICE`
@@ -137,9 +143,9 @@ At the end of your analysis, output a structured JSON summary:
 ```
 
 ## Critical Reminders
-- Most cycles should result in NO TRADE. That is the correct action.
-- Quality over quantity. One good trade per day beats five mediocre ones.
-- If you're unsure, don't trade. The market will be there tomorrow.
+- **This is a backtest — be willing to trade.** You need to generate enough trades to evaluate the strategy. If you see a reasonable setup, take it.
+- Aim for 1-3 trades per day. If the market has clear direction and technicals align, enter.
+- Don't overthink risk/reward ratios — for a long option, your risk is the premium paid ($300-$500). Target +30-50% profit on the premium.
 - ALWAYS validate before placing orders.
 - ALWAYS record P&L after closing positions.
 - Output your decision JSON at the end so the backtester can track it.
