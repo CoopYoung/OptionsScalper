@@ -144,6 +144,16 @@ def _cmd_status() -> None:
         f"Blocked today: {daily.get('blocked_today', 0)}",
     ]
 
+    # LLM info
+    try:
+        from hybrid import config
+        model = config.OLLAMA_MODEL if config.LLM_PROVIDER == "ollama" else (
+            config.CLAUDE_MODEL if config.LLM_PROVIDER == "anthropic" else config.OPENAI_MODEL
+        )
+        lines.append(f"Model: {config.LLM_PROVIDER} / {model}")
+    except Exception:
+        pass
+
     # Account info
     try:
         from hybrid.broker.broker_base import AlpacaBroker
@@ -152,7 +162,6 @@ def _cmd_status() -> None:
         lines.append("")
         lines.append(f"Equity: ${acct.get('equity', 0):,.2f}")
         lines.append(f"Buying Power: ${acct.get('buying_power', 0):,.2f}")
-        lines.append(f"Day Trades: {acct.get('day_trade_count', 0)}/3")
     except Exception as e:
         lines.append(f"\n⚠️ Account fetch failed: {e}")
 

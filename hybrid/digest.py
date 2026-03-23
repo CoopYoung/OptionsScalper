@@ -764,13 +764,8 @@ def build_digest(
     equity = account.get("equity", 0)
     cash = account.get("cash", 0)
     bp = account.get("buying_power", 0)
-    dt_count = account.get("day_trade_count", 0)
     lines.append(f"ACCOUNT: Equity ${equity:,.0f} | Cash ${cash:,.0f} | "
-                 f"Buying Power ${bp:,.0f} | Day Trades: {dt_count}/3")
-    if equity < 25_000 and dt_count >= 3:
-        lines.append("  ⚠ PDT LIMIT REACHED — Cannot open new positions (day trades 3/3)")
-    elif equity < 25_000 and dt_count >= 2:
-        lines.append(f"  ⚠ PDT WARNING — Only {3 - dt_count} day trade(s) remaining")
+                 f"Buying Power ${bp:,.0f}")
 
     # ── Positions ──
     option_positions = [p for p in positions if p.get("asset_class") == "us_option"]
