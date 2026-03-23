@@ -243,6 +243,16 @@ def run_cycle(
         "error": None,
     }
 
+    # ── Kill switch check ──
+    try:
+        from hybrid.alerts.telegram_bot import is_kill_requested
+        if is_kill_requested():
+            logger.warning("Kill switch active — refusing to run")
+            result["skipped"] = "kill_switch"
+            return result
+    except ImportError:
+        pass
+
     # ── Market hours check ──
     if not force and not is_market_hours():
         logger.info("Market is closed — skipping cycle")
@@ -324,6 +334,17 @@ def run_cycle(
         _audit_log(result)
         return result
 
+    # ── Pause check (Telegram /pause) ──
+    try:
+        from hybrid.alerts.telegram_bot import is_paused
+        if is_paused():
+            logger.info("Trading PAUSED via Telegram — skipping entries")
+            result["decision"] = {"decision": "NO_TRADE", "reasoning": "Paused via Telegram"}
+            _audit_log(result)
+            return result
+    except ImportError:
+        pass
+
     # ── Gather Data ──
     logger.info("Gathering market context...")
     t0 = time.time()
@@ -372,6 +393,13 @@ def run_cycle(
         analyses=analyses,
         now_et=now_et,
     )
+
+    # Store digest for Telegram /digest command
+    try:
+        from hybrid.alerts.telegram_bot import set_last_digest
+        set_last_digest(digest)
+    except ImportError:
+        pass
 
     if digest_only:
         print(digest)
@@ -471,35 +499,104 @@ def run_cycle(
     return result
 
 
+# ── Serve Mode (systemd service) ────────────────────────────
+
+def serve(
+    mode: str = "paper",
+    provider: str | None = None,
+    dry_run: bool = False,
+    verbose: bool = False,
+) -> None:
+    """Run continuously as a service. Loops cycles during market hours,
+    sleeps when market is closed. Integrates with Telegram command bot."""
+    import signal as sig
+
+    _setup_logging(verbose)
+    interval = config.CRON_INTERVAL_MINUTES * 60
+    running = True
+
+    def _stop(signum, frame):
+        nonlocal running
+        logger.info("Shutdown signal received (%s)", signum)
+        running = False
+
+    sig.signal(sig.SIGINT, _stop)
+    sig.signal(sig.SIGTERM, _stop)
+
+    # Start Telegram command bot
+    telegram_thread = None
+    try:
+        from hybrid.alerts.telegram_bot import start_polling, is_kill_requested
+        telegram_thread = start_polling()
+    except Exception as e:
+        logger.warning("Telegram bot failed to start: %s", e)
+
+    # Notify startup
+    _notify("🟢 <b>OptionsScalper Started</b>\n"
+            f"Mode: {mode} | LLM: {provider or config.LLM_PROVIDER}\n"
+            f"Interval: {config.CRON_INTERVAL_MINUTES}m | "
+            f"Underlyings: {', '.join(config.UNDERLYINGS)}\n"
+            "Send /help for commands.")
+
+    logger.info("OptionsScalper service started — mode=%s, interval=%dm",
+                mode, config.CRON_INTERVAL_MINUTES)
+
+    cycle_count = 0
+    while running:
+        # Check kill switch
+        try:
+            if is_kill_requested():
+                logger.warning("Kill switch active — stopping service")
+                break
+        except NameError:
+            pass
+
+        if is_market_hours():
+            cycle_count += 1
+            logger.info("=== CYCLE %d ===", cycle_count)
+
+            try:
+                result = run_cycle(
+                    mode=mode,
+                    provider=provider,
+                    dry_run=dry_run,
+                    force=True,  # We handle market hours in the serve loop
+                    verbose=verbose,
+                )
+
+                # Log summary
+                decision = result.get("decision", {})
+                d = decision.get("decision", "?")
+                r = decision.get("reasoning", "")[:60]
+                logger.info("Cycle %d result: %s — %s", cycle_count, d, r)
+
+            except Exception as e:
+                logger.exception("Cycle %d crashed: %s", cycle_count, e)
+                _notify(f"🚨 Cycle {cycle_count} crashed: {e}")
+        else:
+            logger.debug("Market closed — sleeping")
+
+        # Sleep in 1s increments so we catch signals quickly
+        for _ in range(interval):
+            if not running:
+                break
+            try:
+                if is_kill_requested():
+                    running = False
+                    break
+            except NameError:
+                pass
+            time.sleep(1)
+
+    # Shutdown
+    _notify("🛑 <b>OptionsScalper Stopped</b>")
+    logger.info("OptionsScalper service stopped after %d cycles", cycle_count)
+
+
 # ── CLI Entry Point ─────────────────────────────────────────
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="0DTE Options Scalper — Orchestrator")
-    parser.add_argument("--mode", choices=["paper", "live"], default="paper",
-                        help="Paper (Alpaca) or live (Public.com)")
-    parser.add_argument("--provider", choices=["ollama", "anthropic", "openai"],
-                        default=None, help="LLM provider (default: from config)")
-    parser.add_argument("--force", action="store_true",
-                        help="Run outside market hours")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Full pipeline but don't execute trades")
-    parser.add_argument("--digest-only", action="store_true",
-                        help="Print digest prompt and exit (no LLM call)")
-    parser.add_argument("--verbose", "-v", action="store_true",
-                        help="Debug logging")
-
-    args = parser.parse_args()
-
-    result = run_cycle(
-        mode=args.mode,
-        provider=args.provider,
-        dry_run=args.dry_run,
-        digest_only=args.digest_only,
-        force=args.force,
-        verbose=args.verbose,
-    )
-
-    # Print summary to stdout
+def _print_result(result: dict) -> None:
+    """Print a human-readable summary of a cycle result."""
     decision = result.get("decision", {})
     exits = result.get("exits", [])
 
@@ -522,6 +619,46 @@ def main() -> None:
 
     if result.get("error"):
         print(f"❌ Error: {result['error']}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="0DTE Options Scalper — Orchestrator")
+    parser.add_argument("--mode", choices=["paper", "live"], default="paper",
+                        help="Paper (Alpaca) or live (Public.com)")
+    parser.add_argument("--provider", choices=["ollama", "anthropic", "openai"],
+                        default=None, help="LLM provider (default: from config)")
+    parser.add_argument("--force", action="store_true",
+                        help="Run outside market hours")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Full pipeline but don't execute trades")
+    parser.add_argument("--digest-only", action="store_true",
+                        help="Print digest prompt and exit (no LLM call)")
+    parser.add_argument("--serve", action="store_true",
+                        help="Run as a service (loops cycles, Telegram bot)")
+    parser.add_argument("--verbose", "-v", action="store_true",
+                        help="Debug logging")
+
+    args = parser.parse_args()
+
+    if args.serve:
+        serve(
+            mode=args.mode,
+            provider=args.provider,
+            dry_run=args.dry_run,
+            verbose=args.verbose,
+        )
+        return
+
+    result = run_cycle(
+        mode=args.mode,
+        provider=args.provider,
+        dry_run=args.dry_run,
+        digest_only=args.digest_only,
+        force=args.force,
+        verbose=args.verbose,
+    )
+
+    _print_result(result)
 
     # Non-zero exit on errors (useful for cron alerting)
     if result.get("error"):

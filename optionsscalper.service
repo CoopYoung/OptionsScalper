@@ -1,0 +1,29 @@
+[Unit]
+Description=OptionsScalper — AI-Powered 0DTE Options Trader
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=coop
+WorkingDirectory=/home/coop/git-projects/OptionsScalper
+ExecStart=/home/coop/git-projects/OptionsScalper/.venv/bin/python -m hybrid.orchestrator --mode paper --serve
+Restart=on-failure
+RestartSec=30
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+# Graceful shutdown (SIGTERM → orchestrator catches it)
+TimeoutStopSec=30
+KillSignal=SIGTERM
+
+# Environment
+Environment=PYTHONUNBUFFERED=1
+
+# Logging (goes to journalctl)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=optionsscalper
+
+[Install]
+WantedBy=multi-user.target
