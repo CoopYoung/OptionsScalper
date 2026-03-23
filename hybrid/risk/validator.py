@@ -149,6 +149,20 @@ def validate_new_order(
                 f"${MAX_RISK_PER_TRADE:.2f}"
             )
 
+    # ── PDT protection ──
+    # Under $25K equity: max 3 day trades per rolling 5-day window
+    # A "day trade" = opening AND closing the same position in one day
+    # 0DTE options always count because they must close same day
+    equity = account.get("equity", 0)
+    if equity < 25_000:
+        dt_count = account.get("day_trade_count", 0)
+        if side == "buy" and dt_count >= 3:
+            violations.append(
+                f"PDT protection: {dt_count}/3 day trades used "
+                f"(equity ${equity:,.0f} < $25K). "
+                f"Cannot open new 0DTE positions — they count as day trades."
+            )
+
     # ── Trading blocked check ──
     if account.get("trading_blocked"):
         violations.append("Trading is blocked on this account")
