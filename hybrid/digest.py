@@ -695,34 +695,38 @@ def _filter_options(chain: list[dict], spot: float, opt_type: str,
 
 
 def _find_todays_expiry(broker: Broker, symbol: str) -> str | None:
-    """Check if today is a valid 0DTE expiry for this underlying.
+    """Find the nearest valid 0DTE expiry for this underlying.
 
-    SPY has Mon/Wed/Fri expirations, QQQ has Mon/Wed/Fri, IWM has monthly + some weeklies.
-    Rather than fetching all expirations (heavy API call), we use day-of-week heuristics
-    and try to fetch the chain. If the chain returns contracts, today is valid.
+    During market hours, checks today's date. Outside market hours or on
+    weekends, walks back to find the most recent trading day with contracts.
+    This allows digests and pipeline tests to work anytime.
     """
-    today = datetime.now(ET)
-    today_str = today.strftime("%Y-%m-%d")
-    weekday = today.weekday()  # 0=Mon, 4=Fri
+    now = datetime.now(ET)
+    today_str = now.strftime("%Y-%m-%d")
 
-    # SPY and QQQ have Mon/Wed/Fri 0DTE. IWM has Fri + some others.
-    # Quick heuristic: try today for all — the chain call will just return empty if invalid.
-    if weekday >= 5:  # Weekend
-        return None
-
-    # For SPY/QQQ, check M/W/F
-    if symbol in ("SPY", "QQQ") and weekday not in (0, 2, 4):
-        # Tue/Thu — these tickers usually don't have 0DTE
-        # But check anyway in case of special expirations
-        pass
-
-    # Try to fetch a small chain for today's expiry
+    # Try today first (works during market hours and shortly after close)
     try:
         chain = broker.get_option_chain(symbol, today_str)
         if chain and len(chain) > 0:
             return today_str
     except Exception as e:
         logger.debug("Chain check for %s %s: %s", symbol, today_str, e)
+
+    # Fallback: walk back up to 5 days to find the most recent expiry
+    # (covers weekends + holidays). Uses get_option_expirations which
+    # queries the contracts endpoint — lightweight.
+    try:
+        expirations = broker.get_option_expirations(symbol)
+        if expirations:
+            # Expirations are sorted ascending — take the most recent one
+            # that's not in the future
+            for exp in reversed(expirations):
+                if exp <= today_str:
+                    return exp
+            # If all are future, take the nearest one
+            return expirations[0]
+    except Exception as e:
+        logger.debug("Expirations fallback for %s: %s", symbol, e)
 
     return None
 

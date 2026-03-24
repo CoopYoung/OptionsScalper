@@ -254,7 +254,7 @@ def run_cycle(
         pass
 
     # ── Market hours check ──
-    if not force and not is_market_hours():
+    if not force and not digest_only and not is_market_hours():
         logger.info("Market is closed — skipping cycle")
         result["skipped"] = "market_closed"
         return result
@@ -372,7 +372,7 @@ def run_cycle(
     logger.info("Analysis gathered for %d underlyings in %.1fs",
                 len(analyses), time.time() - t0)
 
-    if not analyses:
+    if not analyses and not digest_only:
         logger.info("No underlyings with 0DTE expiry today")
         result["decision"] = {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}
         _audit_log(result)
