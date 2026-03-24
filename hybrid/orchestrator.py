@@ -221,6 +221,40 @@ def _audit_log(entry: dict) -> None:
         logger.error("Audit log failed: %s", e)
 
 
+# ── Contract Resolution ────────────────────────────────────
+
+def _resolve_contract(chain: list[dict], strike: float,
+                      opt_type: str) -> dict | None:
+    """Find the best matching contract from the chain for the LLM's chosen strike.
+
+    Exact match first, then nearest strike within 1% of spot.
+    Returns the contract dict with symbol, mid, bid, ask, etc.
+    """
+    if not chain:
+        return None
+
+    # Exact strike match
+    for c in chain:
+        if abs(c.get("strike", 0) - strike) < 0.01:
+            return c
+
+    # Nearest strike (within $3 tolerance for rounding)
+    best = None
+    best_dist = float("inf")
+    for c in chain:
+        dist = abs(c.get("strike", 0) - strike)
+        if dist < best_dist:
+            best_dist = dist
+            best = c
+
+    if best and best_dist <= 3.0:
+        logger.info("Exact strike $%.0f not found, using nearest $%.0f (Δ$%.1f)",
+                    strike, best["strike"], best_dist)
+        return best
+
+    return None
+
+
 # ── Main Cycle ──────────────────────────────────────────────
 
 def run_cycle(
@@ -429,15 +463,17 @@ def run_cycle(
         _audit_log(result)
         return result
 
-    # ── Validate & Execute ──
-    symbol = decision.get("contract_symbol", "")
-    qty = decision.get("qty", 1)
-    limit_price = decision.get("limit_price")
+    # ── Resolve Contract from LLM Decision ──
+    # LLM only provides: underlying, direction, strike, confidence, reasoning
+    # Python resolves the actual contract symbol, limit price, and quantity
+    underlying = decision.get("underlying", "")
+    direction = decision.get("direction", "").upper()
+    strike = decision.get("strike")
     confidence = decision.get("confidence", 0)
 
-    if not symbol or not limit_price:
-        logger.warning("TRADE decision missing contract_symbol or limit_price")
-        result["error"] = "Incomplete trade decision"
+    if not underlying or not direction or not strike:
+        logger.warning("TRADE decision missing underlying/direction/strike: %s", decision)
+        result["error"] = "Incomplete trade decision from LLM"
         _audit_log(result)
         return result
 
@@ -448,6 +484,55 @@ def run_cycle(
         result["decision"]["blocked"] = "low_confidence"
         _audit_log(result)
         return result
+
+    # Find the matching contract in the chain data
+    # Try the filtered chain first, then fall back to a fresh full chain
+    opt_type = "call" if direction == "CALL" else "put"
+    analysis = analyses.get(underlying, {})
+    chain_key = "calls" if direction == "CALL" else "puts"
+    chain_contracts = analysis.get(chain_key, [])
+
+    contract = _resolve_contract(chain_contracts, float(strike), opt_type)
+    if not contract:
+        # Filtered chain may be empty (e.g., after hours) — try the full chain
+        try:
+            expiry = _find_todays_expiry(broker, underlying)
+            if expiry:
+                full_chain = broker.get_option_chain(underlying, expiry)
+                type_chain = [c for c in full_chain if c.get("option_type") == opt_type]
+                contract = _resolve_contract(type_chain, float(strike), opt_type)
+        except Exception as e:
+            logger.warning("Full chain fallback failed for %s: %s", underlying, e)
+
+    if not contract:
+        logger.warning("No matching contract for %s %s $%.0f in chain",
+                       underlying, direction, strike)
+        result["decision"]["blocked"] = f"Contract not found: {underlying} {direction} ${strike}"
+        _audit_log(result)
+        return result
+
+    symbol = contract["symbol"]
+    limit_price = contract["mid"]
+
+    if limit_price <= 0:
+        logger.warning("Contract %s has no valid price (mid=%.2f)", symbol, limit_price)
+        result["decision"]["blocked"] = "No valid price for contract"
+        _audit_log(result)
+        return result
+
+    # Size the position based on risk limits
+    premium_per_contract = limit_price * 100  # Options are 100 shares
+    qty = max(1, int(config.MAX_RISK_PER_TRADE / premium_per_contract))
+    qty = min(qty, config.MAX_CONTRACTS_PER_TRADE)
+
+    # Store resolved values back into decision for audit
+    decision["contract_symbol"] = symbol
+    decision["limit_price"] = limit_price
+    decision["qty"] = qty
+    decision["resolved_by"] = "python"
+
+    logger.info("Resolved: %s %s $%.0f → %s | mid $%.2f | qty %d",
+                underlying, direction, strike, symbol, limit_price, qty)
 
     # Risk validation
     validation = validate_new_order(
@@ -482,10 +567,6 @@ def run_cycle(
             )
             logger.info("ORDER PLACED: %s", order)
             result["trade"] = order
-
-            underlying = decision.get("underlying", "")
-            direction = decision.get("direction", "")
-            strike = decision.get("strike", "")
             _notify(
                 f"🟡 ORDER: {direction} {underlying} ${strike} x{qty} "
                 f"@ ${limit_price:.2f} | Conf: {confidence}"

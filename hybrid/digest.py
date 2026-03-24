@@ -1037,15 +1037,14 @@ def build_digest(
 
     # ── JSON schema ──
     lines.append("=== RESPOND WITH ONLY THIS JSON ===")
+    lines.append("Pick the underlying, direction, and strike from the data above.")
+    lines.append("Python will resolve the exact contract, limit price, and quantity.")
     lines.append("""{
   "decision": "TRADE" or "NO_TRADE",
   "underlying": "SPY" or "QQQ" or "IWM",
   "direction": "CALL" or "PUT",
-  "strike": 650.0,
-  "contract_symbol": "SPY260321P00650000",
-  "qty": 1,
-  "limit_price": 2.15,
-  "confidence": 72,
+  "strike": <pick a strike from the chain data above>,
+  "confidence": <0-100>,
   "reasoning": "Brief explanation of why this trade or why no trade"
 }""")
     lines.append("")
