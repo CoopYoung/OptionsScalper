@@ -5,9 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=coop
-WorkingDirectory=/home/coop/git-projects/OptionsScalper
-ExecStart=/home/coop/git-projects/OptionsScalper/.venv/bin/python -m hybrid.orchestrator --mode paper --serve
+User=root
+WorkingDirectory=/root/proj/OptionsScalper
+ExecStart=/root/proj/OptionsScalper/.venv/bin/python -m hybrid.orchestrator --mode paper --serve
 Restart=on-failure
 RestartSec=30
 StartLimitIntervalSec=300

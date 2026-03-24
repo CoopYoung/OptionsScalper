@@ -1,3 +1,47 @@
 {"timestamp": "2026-03-22T00:55:49.265413-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "Before entry start"}, "trade": null, "error": null}
 {"timestamp": "2026-03-22T00:55:49.720642-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "Before entry start"}, "trade": null, "error": null}
 {"timestamp": "2026-03-22T00:58:15.955288-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-22T18:42:17.512256-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-22T18:50:46.495621-04:00", "mode": "paper", "exits": [], "decision": {}, "trade": null, "error": null}
+{"timestamp": "2026-03-22T18:56:28.335457-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-22T18:57:22.553490-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-22T23:51:39.005298-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T09:31:38.036370-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T09:41:43.210061-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T09:51:47.506464-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T10:01:51.704636-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T10:11:56.809155-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T10:22:01.883581-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T10:32:06.428105-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T10:42:10.677968-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T10:52:15.081613-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T11:02:19.311289-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T11:12:23.518406-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T11:22:27.915634-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T11:32:32.354440-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T11:42:36.726584-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T11:52:41.171262-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T12:02:45.662917-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T12:12:50.010710-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T12:22:54.520428-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T12:32:59.317877-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T12:43:03.916425-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T12:53:08.515328-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T13:03:12.941628-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T13:13:17.667621-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T13:23:22.100925-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T13:33:26.403934-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T13:43:31.036807-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T13:53:35.476006-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T14:03:39.984837-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T14:13:45.391273-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T14:23:49.504249-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T14:33:53.711129-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T14:43:57.891561-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T14:54:02.420786-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T15:04:06.919551-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T15:14:11.760768-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T15:24:18.833259-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T15:34:23.179236-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T15:44:27.768156-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}
+{"timestamp": "2026-03-23T15:54:31.904757-04:00", "mode": "paper", "exits": [], "decision": {"decision": "NO_TRADE", "reasoning": "No 0DTE expiry today"}, "trade": null, "error": null}

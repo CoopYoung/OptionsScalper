@@ -158,57 +158,103 @@ def get_stock_bars(symbol: str, timeframe: str = "5Min",
 
 # ── Market Data: Options ─────────────────────────────────────
 
-def get_option_chain(underlying: str, expiration_date: str = None,
-                     option_type: str = None) -> list[dict]:
-    """Get options chain for an underlying.
+def _get_option_contracts(underlying: str, expiration_date: str = None,
+                          option_type: str = None, limit: int = 100) -> list[dict]:
+    """Step 1: Discover option contract symbols via the trading API.
 
-    Args:
-        underlying: e.g. "SPY"
-        expiration_date: YYYY-MM-DD format, defaults to nearest
-        option_type: "call" or "put" or None for both
+    Uses /v2/options/contracts which supports underlying_symbols filtering.
+    Returns raw contract metadata (symbol, strike, expiry, type).
     """
     params = {
         "underlying_symbols": underlying,
-        "limit": 100,
-        "feed": "indicative",
+        "status": "active",
+        "limit": limit,
     }
     if expiration_date:
         params["expiration_date"] = expiration_date
     if option_type:
         params["type"] = option_type
 
-    raw = _get(_data("/options/snapshots"), params=params)
+    raw = _get(_trading("/options/contracts"), params=params)
+    return raw.get("option_contracts", raw) if isinstance(raw, dict) else raw
+
+
+def get_option_chain(underlying: str, expiration_date: str = None,
+                     option_type: str = None) -> list[dict]:
+    """Get options chain for an underlying.
+
+    Two-step approach matching the working src/ implementation:
+    1. Discover contract symbols via /v2/options/contracts (trading API)
+    2. Fetch live quotes + Greeks via /v1beta1/options/snapshots (data API)
+
+    Args:
+        underlying: e.g. "SPY"
+        expiration_date: YYYY-MM-DD format, defaults to nearest
+        option_type: "call" or "put" or None for both
+    """
+    # Step 1: Get contract symbols from trading API
+    contracts = _get_option_contracts(underlying, expiration_date, option_type)
+    if not contracts:
+        return []
+
+    symbols = [c["symbol"] for c in contracts if "symbol" in c]
+    if not symbols:
+        return []
+
+    # Build a lookup from contract metadata for strike/expiry/type
+    contract_meta = {}
+    for c in contracts:
+        contract_meta[c["symbol"]] = {
+            "strike": float(c.get("strike_price", 0)),
+            "expiration": str(c.get("expiration_date", "")),
+            "option_type": c.get("type", "").lower(),
+        }
+
+    # Step 2: Fetch snapshots in chunks of 100
     chain = []
-    for sym, snap in raw.get("snapshots", {}).items():
-        greeks = snap.get("greeks", {})
-        quote = snap.get("latestQuote", {})
-        trade = snap.get("latestTrade", {})
+    for i in range(0, len(symbols), 100):
+        chunk = symbols[i:i + 100]
+        params = {
+            "symbols": ",".join(chunk),
+            "feed": "indicative",
+        }
+        try:
+            raw = _get(_data("/options/snapshots"), params=params)
+        except Exception as e:
+            logger.warning("Snapshot fetch failed for chunk %d: %s", i, e)
+            continue
 
-        bid = float(quote.get("bp", 0))
-        ask = float(quote.get("ap", 0))
-        mid = round((bid + ask) / 2, 2) if (bid + ask) > 0 else 0
+        for sym, snap in raw.get("snapshots", {}).items():
+            greeks = snap.get("greeks", {})
+            quote = snap.get("latestQuote", {})
+            trade = snap.get("latestTrade", {})
 
-        chain.append({
-            "symbol": sym,
-            "underlying": underlying,
-            "strike": float(snap.get("strike_price", _parse_strike(sym))),
-            "expiration": snap.get("expiration_date", _parse_expiry(sym)),
-            "option_type": snap.get("type", _parse_type(sym)),
-            "bid": bid,
-            "ask": ask,
-            "mid": mid,
-            "spread": round(ask - bid, 2),
-            "spread_pct": round((ask - bid) / mid * 100, 1) if mid > 0 else 999,
-            "last_trade": float(trade.get("p", 0)),
-            "volume": int(trade.get("s", 0)),
-            "open_interest": int(snap.get("open_interest", 0)),
-            "iv": round(float(snap.get("implied_volatility", 0)), 4),
-            "delta": round(float(greeks.get("delta", 0)), 4),
-            "gamma": round(float(greeks.get("gamma", 0)), 4),
-            "theta": round(float(greeks.get("theta", 0)), 4),
-            "vega": round(float(greeks.get("vega", 0)), 4),
-            "rho": round(float(greeks.get("rho", 0)), 4),
-        })
+            bid = float(quote.get("bp", 0))
+            ask = float(quote.get("ap", 0))
+            mid = round((bid + ask) / 2, 2) if (bid + ask) > 0 else 0
+
+            meta = contract_meta.get(sym, {})
+            chain.append({
+                "symbol": sym,
+                "underlying": underlying,
+                "strike": meta.get("strike", _parse_strike(sym)),
+                "expiration": meta.get("expiration", _parse_expiry(sym)),
+                "option_type": meta.get("option_type", _parse_type(sym)),
+                "bid": bid,
+                "ask": ask,
+                "mid": mid,
+                "spread": round(ask - bid, 2),
+                "spread_pct": round((ask - bid) / mid * 100, 1) if mid > 0 else 999,
+                "last_trade": float(trade.get("p", 0)),
+                "volume": int(trade.get("s", 0)),
+                "open_interest": int(snap.get("open_interest", 0)),
+                "iv": round(float(snap.get("implied_volatility", 0)), 4),
+                "delta": round(float(greeks.get("delta", 0)), 4),
+                "gamma": round(float(greeks.get("gamma", 0)), 4),
+                "theta": round(float(greeks.get("theta", 0)), 4),
+                "vega": round(float(greeks.get("vega", 0)), 4),
+                "rho": round(float(greeks.get("rho", 0)), 4),
+            })
 
     # Sort by strike
     chain.sort(key=lambda x: (x["option_type"], x["strike"]))
@@ -217,16 +263,11 @@ def get_option_chain(underlying: str, expiration_date: str = None,
 
 def get_option_expirations(underlying: str) -> list[str]:
     """Get available expiration dates for an underlying."""
-    # Fetch a broad chain and extract unique expirations
-    params = {
-        "underlying_symbols": underlying,
-        "limit": 200,
-        "feed": "indicative",
-    }
-    raw = _get(_data("/options/snapshots"), params=params)
+    # Use the contracts endpoint which supports underlying_symbols
+    contracts = _get_option_contracts(underlying, limit=200)
     expirations = set()
-    for sym in raw.get("snapshots", {}):
-        exp = _parse_expiry(sym)
+    for c in contracts:
+        exp = str(c.get("expiration_date", ""))
         if exp:
             expirations.add(exp)
     return sorted(expirations)

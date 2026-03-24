@@ -249,15 +249,50 @@ def _cmd_positions() -> None:
 
 
 def _cmd_digest() -> None:
-    """Show the last digest sent to the LLM."""
+    """Show the last digest or generate a fresh market snapshot on demand."""
     if _last_digest:
         # Telegram has a 4096 char limit — truncate if needed
         text = _last_digest[:3900]
         if len(_last_digest) > 3900:
             text += f"\n\n... (truncated, {len(_last_digest)} chars total)"
         _send(f"<pre>{text}</pre>")
-    else:
-        _send("No digest generated yet. Wait for the next cycle.")
+        return
+
+    # No cached digest — generate a market-context-only snapshot on demand
+    _send("No LLM digest cached. Generating market snapshot...")
+    try:
+        from hybrid.digest import gather_market_context, build_digest
+        from hybrid.broker.broker_base import AlpacaBroker
+        from hybrid import config
+
+        broker = AlpacaBroker()
+        market_context = gather_market_context()
+
+        try:
+            account = broker.get_account()
+        except Exception:
+            account = {"equity": 0, "cash": 0, "buying_power": 0}
+
+        try:
+            positions = broker.get_positions()
+        except Exception:
+            positions = []
+
+        digest = build_digest(
+            account=account,
+            positions=positions,
+            daily_state={"realized_pnl": 0, "trades_today": 0},
+            market_context=market_context,
+            analyses={},
+        )
+
+        text = digest[:3900]
+        if len(digest) > 3900:
+            text += f"\n\n... (truncated, {len(digest)} chars total)"
+        _send(f"<pre>{text}</pre>")
+    except Exception as e:
+        logger.error("On-demand digest failed: %s", e)
+        _send(f"❌ Failed to generate digest: {e}")
 
 
 def _cmd_help() -> None:
