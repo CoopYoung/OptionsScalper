@@ -1,0 +1,126 @@
+{
+  "timestamp": "2026-03-31T13:15:00-04:00",
+  "source": "web_search_aggregated",
+  "note": "Alpaca API blocked by environment egress proxy. Data from web search. MAJOR AFTERNOON RALLY.",
+  "equities": {
+    "SPY": {
+      "price": 648.87,
+      "open": 640.11,
+      "high": 649.50,
+      "low": 629.29,
+      "prev_close": 634.09,
+      "change_pct": 2.33,
+      "52w_high": 697.84,
+      "52w_low": 481.80,
+      "ytd_return_pct": -6.76,
+      "note": "Estimated from S&P 500 at 6491.35 (+2.33%). Gap up, sold off to 629.29, then massive afternoon reversal."
+    },
+    "QQQ": {
+      "price": 581.67,
+      "open": 567.14,
+      "high": 582.00,
+      "low": 555.60,
+      "prev_close": 563.08,
+      "change_pct": 3.30,
+      "52w_high": 637.01,
+      "52w_low": 402.39,
+      "note": "Estimated from Nasdaq at 21481.75 (+3.30%). Tech leading afternoon rally."
+    },
+    "IWM": {
+      "price": 240.72,
+      "prev_close": 236.21,
+      "change_pct": 1.91,
+      "note": "Estimated from Dow/broad market rally. Small caps participated but underperformed mega-cap tech."
+    }
+  },
+  "indices": {
+    "SPX": {
+      "price": 6491.35,
+      "change_pts": 147.63,
+      "change_pct": 2.33,
+      "prev_close": 6343.72
+    },
+    "DJIA": {
+      "price": 46080.66,
+      "change_pct": 1.91,
+      "note": "Briefly surged 1100+ points on Iran peace report"
+    },
+    "NASDAQ": {
+      "price": 21481.75,
+      "change_pct": 3.30,
+      "note": "Tech leading the rally"
+    }
+  },
+  "volatility": {
+    "VIX": {
+      "price": 27.71,
+      "open": 30.81,
+      "high": 31.32,
+      "low": 27.00,
+      "prev_close": 30.61,
+      "change_pct": -9.47,
+      "regime": "HIGH",
+      "march_high": 35.30,
+      "march_low": 20.28,
+      "march_avg": 25.58,
+      "note": "VIX plummeted nearly 9.5% — significant risk-on signal"
+    }
+  },
+  "sentiment": {
+    "cnn_fear_greed": {
+      "value": 13,
+      "label": "Extreme Fear",
+      "note": "Still Extreme Fear despite massive rally — lagging indicator. Contrarian bullish signal remains strong."
+    }
+  },
+  "macro": {
+    "catalyst": "Iranian President Pezeshkian reportedly open to ending war. Trump willing to end hostilities even with Hormuz closed.",
+    "oil": {
+      "brent": 110.69,
+      "wti": 102.00,
+      "brent_open": 108.76,
+      "brent_high": 119.00,
+      "brent_note": "Volatile — spiked to $119 on Iran tanker attack, then dropped on peace hopes. WTI dropped to $102.",
+      "brent_march_change_pct": 55.0
+    },
+    "consumer_confidence": 91.8,
+    "jolts_hiring_rate_pct": 3.1,
+    "gas_national_avg": 4.00,
+    "quarter_end": true,
+    "month_end": true,
+    "q1_2026_worst_quarter_since": "2022"
+  },
+  "sector_highlights": {
+    "leaders": ["Technology (+3.3%)", "Communication Services", "Consumer Discretionary"],
+    "laggards": ["Energy (uncertain on peace hopes)"],
+    "notable": [
+      "MRVL +8% (Nvidia $2B investment)",
+      "MSFT +2%",
+      "NVDA +3%",
+      "APLS surging (Biogen $5.6B acquisition)",
+      "CNTB surging (Eli Lilly $7.8B acquisition)"
+    ]
+  },
+  "technicals": {
+    "SPY": {
+      "pattern": "gap_up_selloff_reversal",
+      "morning_action": "Opened at $640.11, sold off hard to $629.29 (-1.7%)",
+      "afternoon_action": "Massive reversal from lows, now at $648.87 (+2.33%). V-shaped recovery.",
+      "key_levels": {
+        "support": 629.0,
+        "resistance": 650.0,
+        "vwap_estimate": 638.0
+      },
+      "intraday_range": "$629.29 - $649.50 = $20.21 (3.2% range)",
+      "note": "This is a textbook reversal pattern. Morning gap-up failed, full selloff, then afternoon squeeze higher. Extremely bullish price action."
+    }
+  },
+  "market_regime": {
+    "primary": "HIGH_VOL_RELIEF_RALLY",
+    "vix_regime": "HIGH (but compressing rapidly, -9.5%)",
+    "trend": "Strong bullish reversal — afternoon momentum carry",
+    "dealer_gamma": "Likely short gamma — dealers amplifying the upside squeeze",
+    "iv_surface": "Elevated but compressing. Good for 0DTE call buyers who caught the reversal.",
+    "time_regime": "EARLY_AFTERNOON (1:00-2:30 ET) — volume picking up, directional momentum establishing"
+  }
+}

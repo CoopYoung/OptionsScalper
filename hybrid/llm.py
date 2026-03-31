@@ -173,6 +173,11 @@ class AnthropicClient(LLMClient):
             model=self.model,
             max_tokens=512,
             temperature=0.3,
+            system=(
+                "You are a quantitative 0DTE options trading analyst. "
+                "Analyze the market data provided and make a trading decision. "
+                "Respond with ONLY a valid JSON object, no commentary."
+            ),
             messages=[{"role": "user", "content": prompt}],
         )
         return message.content[0].text
