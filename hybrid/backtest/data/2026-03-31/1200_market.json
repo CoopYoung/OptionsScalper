@@ -1,0 +1,97 @@
+{
+  "timestamp": "2026-03-31T12:27:00-04:00",
+  "source": "web_search_aggregated",
+  "note": "Alpaca API blocked by environment egress proxy. Data from web search.",
+  "equities": {
+    "SPY": {
+      "price": 630.58,
+      "open": 640.11,
+      "high": 641.38,
+      "low": 629.29,
+      "prev_close": 634.09,
+      "change_pct": -0.55,
+      "52w_high": 697.84,
+      "52w_low": 481.80,
+      "ytd_return_pct": -6.76
+    },
+    "QQQ": {
+      "price": 558.00,
+      "open": 567.14,
+      "high": 568.04,
+      "low": 555.60,
+      "prev_close": 563.08,
+      "change_pct": -0.90,
+      "52w_high": 637.01,
+      "52w_low": 402.39
+    },
+    "IWM": {
+      "price": 239.61,
+      "prev_close": 236.21,
+      "change_pct": 1.44
+    }
+  },
+  "indices": {
+    "SPX": {
+      "price": 6402.22,
+      "change_pct": 0.52,
+      "prev_close": 6343.72
+    },
+    "DJIA": {
+      "price": 45562.25,
+      "change_pct": 0.88
+    },
+    "NASDAQ": {
+      "price": 21009.17,
+      "change_pct": 0.29
+    }
+  },
+  "volatility": {
+    "VIX": {
+      "price": 28.87,
+      "open": 30.81,
+      "high": 31.32,
+      "low": 29.33,
+      "prev_close": 30.61,
+      "change_pct": -5.69,
+      "regime": "HIGH",
+      "march_high": 35.30,
+      "march_low": 20.28,
+      "march_avg": 25.58
+    }
+  },
+  "sentiment": {
+    "cnn_fear_greed": {
+      "value": 13,
+      "label": "Extreme Fear",
+      "note": "6 of 7 indicators flash Extreme Fear. Only 3.4% of trading days since 2011 have been this low."
+    }
+  },
+  "macro": {
+    "catalyst": "Trump signals willingness to end Iran war even with Strait of Hormuz closed",
+    "oil": {
+      "brent": 117.48,
+      "wti": 103.70,
+      "brent_change_pct": 4.0
+    },
+    "consumer_confidence": 91.8,
+    "jolts_hiring_rate_pct": 3.1,
+    "gas_national_avg": 4.00,
+    "quarter_end": true,
+    "month_end": true
+  },
+  "sector_highlights": {
+    "leaders": ["Technology", "Consumer Discretionary", "Communication Services"],
+    "laggards": ["Utilities"],
+    "notable": ["MRVL +8% (Nvidia $2B investment)", "MSFT +2%", "NVDA +3%"],
+    "sp500_breadth": "441 of 500 components up, 10/11 sectors green"
+  },
+  "technicals": {
+    "SPY": {
+      "pattern": "gap_up_and_sell",
+      "open_to_low_range": "640.11 -> 629.29 = $10.82 gap fill",
+      "current_position": "lower_half_of_range",
+      "support": 629.0,
+      "resistance": 641.0
+    }
+  }
+}
