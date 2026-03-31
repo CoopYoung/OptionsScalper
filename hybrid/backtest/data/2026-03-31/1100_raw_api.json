@@ -1,0 +1,103 @@
+{
+  "fetched_at": "2026-03-31T15:23:15.456510+00:00",
+  "spy_price_used": 560.0,
+  "results": {
+    "1_account": {
+      "url": "https://paper-api.alpaca.markets/v2/account",
+      "params": null,
+      "status_code": null,
+      "error": "HTTPSConnectionPool(host='paper-api.alpaca.markets', port=443): Max retries exceeded with url: /v2/account (Caused by ProxyError('Unable to connect to proxy', OSError('Tunnel connection failed: 403 Forbidden')))"
+    },
+    "2_positions": {
+      "url": "https://paper-api.alpaca.markets/v2/positions",
+      "params": null,
+      "status_code": null,
+      "error": "HTTPSConnectionPool(host='paper-api.alpaca.markets', port=443): Max retries exceeded with url: /v2/positions (Caused by ProxyError('Unable to connect to proxy', OSError('Tunnel connection failed: 403 Forbidden')))"
+    },
+    "3_orders_today": {
+      "url": "https://paper-api.alpaca.markets/v2/orders",
+      "params": {
+        "status": "all",
+        "after": "2026-03-31"
+      },
+      "status_code": null,
+      "error": "HTTPSConnectionPool(host='paper-api.alpaca.markets', port=443): Max retries exceeded with url: /v2/orders?status=all&after=2026-03-31 (Caused by ProxyError('Unable to connect to proxy', OSError('Tunnel connection failed: 403 Forbidden')))"
+    },
+    "4_stock_snapshots": {
+      "url": "https://data.alpaca.markets/v2/stocks/snapshots",
+      "params": {
+        "symbols": "SPY,QQQ,IWM"
+      },
+      "status_code": null,
+      "error": "HTTPSConnectionPool(host='data.alpaca.markets', port=443): Max retries exceeded with url: /v2/stocks/snapshots?symbols=SPY%2CQQQ%2CIWM (Caused by ProxyError('Unable to connect to proxy', OSError('Tunnel connection failed: 403 Forbidden')))"
+    },
+    "5_options_snapshots": {
+      "url": "https://data.alpaca.markets/v1beta1/options/snapshots",
+      "params": {
+        "symbols": "SPY260331C00560000,SPY260331P00560000"
+      },
+      "status_code": null,
+      "error": "HTTPSConnectionPool(host='data.alpaca.markets', port=443): Max retries exceeded with url: /v1beta1/options/snapshots?symbols=SPY260331C00560000%2CSPY260331P00560000 (Caused by ProxyError('Unable to connect to proxy', OSError('Tunnel connection failed: 403 Forbidden')))"
+    },
+    "6_vixy_snapshot": {
+      "url": "https://data.alpaca.markets/v2/stocks/snapshots",
+      "params": {
+        "symbols": "VIXY"
+      },
+      "status_code": null,
+      "error": "HTTPSConnectionPool(host='data.alpaca.markets', port=443): Max retries exceeded with url: /v2/stocks/snapshots?symbols=VIXY (Caused by ProxyError('Unable to connect to proxy', OSError('Tunnel connection failed: 403 Forbidden')))"
+    },
+    "7_vix_yfinance": {
+      "error": "Failed to perform, curl: (56) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details."
+    },
+    "8_spy_options_chain": {
+      "url": "https://data.alpaca.markets/v1beta1/options/contracts",
+      "params": {
+        "underlying_symbols": "SPY",
+        "expiration_date": "2026-03-31",
+        "status": "active",
+        "limit": 100
+      },
+      "status_code": null,
+      "error": "HTTPSConnectionPool(host='data.alpaca.markets', port=443): Max retries exceeded with url: /v1beta1/options/contracts?underlying_symbols=SPY&expiration_date=2026-03-31&status=active&limit=100 (Caused by ProxyError('Unable to connect to proxy', OSError('Tunnel connection failed: 403 Forbidden')))"
+    },
+    "9_qqq_options_chain": {
+      "url": "https://data.alpaca.markets/v1beta1/options/contracts",
+      "params": {
+        "underlying_symbols": "QQQ",
+        "expiration_date": "2026-03-31",
+        "status": "active",
+        "limit": 100
+      },
+      "status_code": null,
+      "error": "HTTPSConnectionPool(host='data.alpaca.markets', port=443): Max retries exceeded with url: /v1beta1/options/contracts?underlying_symbols=QQQ&expiration_date=2026-03-31&status=active&limit=100 (Caused by ProxyError('Unable to connect to proxy', OSError('Tunnel connection failed: 403 Forbidden')))"
+    },
+    "10_iwm_options_chain": {
+      "url": "https://data.alpaca.markets/v1beta1/options/contracts",
+      "params": {
+        "underlying_symbols": "IWM",
+        "expiration_date": "2026-03-31",
+        "status": "active",
+        "limit": 100
+      },
+      "status_code": null,
+      "error": "HTTPSConnectionPool(host='data.alpaca.markets', port=443): Max retries exceeded with url: /v1beta1/options/contracts?underlying_symbols=IWM&expiration_date=2026-03-31&status=active&limit=100 (Caused by ProxyError('Unable to connect to proxy', OSError('Tunnel connection failed: 403 Forbidden')))"
+    },
+    "11_yfinance_fallback": {
+      "data": {
+        "SPY": {
+          "error": "Failed to perform, curl: (56) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details."
+        },
+        "QQQ": {
+          "error": "'NoneType' object is not subscriptable"
+        },
+        "IWM": {
+          "error": "'NoneType' object is not subscriptable"
+        },
+        "^VIX": {
+          "error": "'NoneType' object is not subscriptable"
+        }
+      }
+    }
+  }
+}
