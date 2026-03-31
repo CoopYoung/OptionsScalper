@@ -131,6 +131,11 @@ class OllamaClient(LLMClient):
             f"{self.url}/api/generate",
             json={
                 "model": self.model,
+                "system": (
+                    "You are a quantitative 0DTE options trading analyst. "
+                    "Analyze the market data provided and make a trading decision. "
+                    "Respond with ONLY a valid JSON object, no commentary."
+                ),
                 "prompt": prompt,
                 "stream": False,
                 "options": {

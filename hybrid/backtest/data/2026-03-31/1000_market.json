@@ -1,0 +1,23 @@
+{
+  "snapshot_time": "2026-03-31T10:00:00-04:00",
+  "snapshot_utc": "2026-03-31T14:00:00Z",
+  "data_source": "monitor_run",
+  "note": "Unable to fetch live data — environment egress proxy blocks Alpaca/Finnhub/Yahoo APIs. Only github.com, pypi.org, and package registries are allowed.",
+  "market_context": {
+    "day_of_week": "Tuesday",
+    "0dte_available": {
+      "SPY": false,
+      "QQQ": false,
+      "IWM": false,
+      "note": "Tuesday is NOT a standard 0DTE expiry day for SPY/QQQ (Mon/Wed/Fri) or IWM (Fri). No 0DTE trading expected."
+    },
+    "quarter_end": true,
+    "note": "March 31 is Q1 quarter-end — expect potential rebalancing flows, window dressing by fund managers."
+  },
+  "connectivity": {
+    "alpaca_api": "blocked_by_proxy",
+    "finnhub_api": "blocked_by_proxy",
+    "yahoo_finance": "blocked_by_proxy",
+    "telegram_api": "blocked_by_proxy"
+  }
+}

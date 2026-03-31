@@ -67,8 +67,8 @@ ALLOWED_STRATEGIES = [
 # ── Timing ──────────────────────────────────────────────────
 CRON_INTERVAL_MINUTES = _int("CRON_INTERVAL_MINUTES", 10)
 ENTRY_START_ET = _get("ENTRY_START_ET", "09:45")
-ENTRY_CUTOFF_ET = _get("ENTRY_CUTOFF_ET", "15:00")
-HARD_CLOSE_ET = _get("HARD_CLOSE_ET", "15:45")
+ENTRY_CUTOFF_ET = _get("ENTRY_CUTOFF_ET", "14:30")
+HARD_CLOSE_ET = _get("HARD_CLOSE_ET", "15:15")
 MIN_DTE = _int("MIN_DTE", 0)   # 0 = same-day allowed
 MAX_DTE = _int("MAX_DTE", 3)   # Up to 3 DTE
 
