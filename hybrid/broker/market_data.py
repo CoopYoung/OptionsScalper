@@ -103,22 +103,22 @@ def get_fear_greed() -> dict:
         score = int(fg.get("score", 50))
         rating = fg.get("rating", "Neutral")
 
-        # Classify for trading
+        # Raw classification — no directional bias, let the LLM decide
         if score <= 25:
-            signal = "CONTRARIAN_BULLISH"
-            advice = "Extreme fear — historically a buying opportunity (contrarian)"
+            signal = "EXTREME_FEAR"
+            advice = "Extreme fear — heavy selling pressure, high panic"
         elif score <= 40:
-            signal = "LEAN_BULLISH"
-            advice = "Fear — market may be oversold, lean bullish"
+            signal = "FEAR"
+            advice = "Fear — sellers dominating, risk-off sentiment"
         elif score <= 60:
             signal = "NEUTRAL"
             advice = "Neutral — no strong sentiment signal"
         elif score <= 75:
-            signal = "LEAN_BEARISH"
-            advice = "Greed — market may be overbought, lean bearish"
+            signal = "GREED"
+            advice = "Greed — buyers dominating, risk-on sentiment"
         else:
-            signal = "CONTRARIAN_BEARISH"
-            advice = "Extreme greed — historically precedes pullbacks (contrarian)"
+            signal = "EXTREME_GREED"
+            advice = "Extreme greed — euphoric buying, elevated complacency"
 
         return {
             "score": score,

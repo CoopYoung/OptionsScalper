@@ -223,15 +223,47 @@ def _audit_log(entry: dict) -> None:
 
 # ── Contract Resolution ────────────────────────────────────
 
+def _normalize_strike(strike: float, chain: list[dict] = None) -> float:
+    """Normalize LLM strike values.
+
+    The LLM sometimes outputs OCC-format strikes (e.g., 65500 instead of
+    655.00). We try dividing by common multipliers (100, 1000) and pick
+    whichever lands closest to an actual strike in the chain.
+    """
+    if not chain or strike < 1000:
+        return strike
+
+    chain_strikes = {c.get("strike", 0) for c in chain if c.get("strike", 0) > 0}
+    if not chain_strikes:
+        return strike
+
+    # Try raw value and common divisors
+    candidates = [strike, strike / 100, strike / 1000]
+    best = strike
+    best_dist = float("inf")
+    for candidate in candidates:
+        for cs in chain_strikes:
+            dist = abs(candidate - cs)
+            if dist < best_dist:
+                best_dist = dist
+                best = candidate
+
+    if best != strike:
+        logger.info("Normalized LLM strike %.0f → %.1f", strike, best)
+    return best
+
+
 def _resolve_contract(chain: list[dict], strike: float,
                       opt_type: str) -> dict | None:
     """Find the best matching contract from the chain for the LLM's chosen strike.
 
-    Exact match first, then nearest strike within 1% of spot.
+    Exact match first, then nearest strike within $3.
     Returns the contract dict with symbol, mid, bid, ask, etc.
     """
     if not chain:
         return None
+
+    strike = _normalize_strike(strike, chain)
 
     # Exact strike match
     for c in chain:
@@ -368,6 +400,19 @@ def run_cycle(
         _audit_log(result)
         return result
 
+    # Track which underlyings already have open positions
+    held_underlyings: set[str] = set()
+    for p in option_positions:
+        sym = p.get("symbol", "")
+        underlying = ""
+        for ch in sym:
+            if ch.isalpha():
+                underlying += ch
+            else:
+                break
+        if underlying:
+            held_underlyings.add(underlying)
+
     # ── Pause check (Telegram /pause) ──
     try:
         from hybrid.alerts.telegram_bot import is_paused
@@ -426,6 +471,7 @@ def run_cycle(
         market_context=market_context,
         analyses=analyses,
         now_et=now_et,
+        held_underlyings=held_underlyings,
     )
 
     # Store digest for Telegram /digest command
@@ -477,6 +523,13 @@ def run_cycle(
         _audit_log(result)
         return result
 
+    # One position per underlying — don't stack into the same index
+    if underlying in held_underlyings:
+        logger.info("Already holding %s — skipping new entry", underlying)
+        result["decision"]["blocked"] = f"Already holding {underlying}"
+        _audit_log(result)
+        return result
+
     # Confidence gate
     if confidence < config.SIGNAL_CONFIDENCE_THRESHOLD:
         logger.info("Confidence %d < threshold %d — blocking trade",
@@ -512,7 +565,18 @@ def run_cycle(
         return result
 
     symbol = contract["symbol"]
-    limit_price = contract["mid"]
+
+    # Refresh the quote AFTER the LLM call — the price may have moved
+    # during the ~2 min inference time
+    try:
+        fresh_quote = broker.get_option_quote(symbol)
+        limit_price = fresh_quote.get("mid", 0)
+        logger.info("Fresh quote for %s: bid=$%.2f ask=$%.2f mid=$%.2f",
+                    symbol, fresh_quote.get("bid", 0),
+                    fresh_quote.get("ask", 0), limit_price)
+    except Exception as e:
+        logger.warning("Fresh quote failed for %s, using chain mid: %s", symbol, e)
+        limit_price = contract["mid"]
 
     if limit_price <= 0:
         logger.warning("Contract %s has no valid price (mid=%.2f)", symbol, limit_price)
@@ -657,7 +721,10 @@ def serve(
         else:
             logger.debug("Market closed — sleeping")
 
-        # Sleep in 1s increments so we catch signals quickly
+        # Sleep in 1s increments, running fast exit checks every
+        # EXIT_CHECK_SECONDS when we have open positions
+        exit_interval = config.EXIT_CHECK_SECONDS
+        seconds_since_exit_check = 0
         for _ in range(interval):
             if not running:
                 break
@@ -668,6 +735,43 @@ def serve(
             except NameError:
                 pass
             time.sleep(1)
+            seconds_since_exit_check += 1
+
+            # Fast exit check
+            if (is_market_hours() and seconds_since_exit_check >= exit_interval):
+                seconds_since_exit_check = 0
+                try:
+                    broker = _get_broker(mode)
+                    positions = broker.get_positions()
+                    option_positions = [
+                        p for p in positions
+                        if p.get("asset_class") == "us_option"
+                    ]
+                    if not option_positions:
+                        continue
+
+                    # Check force close first
+                    if should_force_close_all():
+                        exits = _force_close_all(broker, option_positions, dry_run)
+                        if exits:
+                            summary = ", ".join(
+                                f"{e['symbol']} ${e['pnl']}" for e in exits
+                            )
+                            _notify(f"🔴 FORCE CLOSE: {summary}")
+                            logger.info("Fast exit — force close: %s", summary)
+                        continue
+
+                    exits = _manage_exits(broker, option_positions, dry_run)
+                    if exits:
+                        for e in exits:
+                            _notify(
+                                f"{'🟢' if e['pnl'] > 0 else '🔴'} EXIT "
+                                f"{e['symbol']}: {e['reason']} → "
+                                f"${e['pnl']:+.2f}"
+                            )
+                        logger.info("Fast exit check — %d exits", len(exits))
+                except Exception as e:
+                    logger.debug("Fast exit check error: %s", e)
 
     # Shutdown
     _notify("🛑 <b>OptionsScalper Stopped</b>")

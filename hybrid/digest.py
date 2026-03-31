@@ -178,8 +178,8 @@ def compute_momentum(closes: list[float], period: int = 5) -> float | None:
 def compute_put_call_ratio(chain: list[dict]) -> dict | None:
     """Compute P/C ratio from the full options chain.
 
-    Returns volume-based and OI-based ratios with interpretation.
-    P/C > 1.2 = bearish (contrarian bullish), < 0.7 = bullish (contrarian bearish).
+    Returns volume-based and OI-based ratios.
+    P/C > 1.2 = put-heavy flow, < 0.7 = call-heavy flow.
     """
     if not chain:
         return None
@@ -201,14 +201,14 @@ def compute_put_call_ratio(chain: list[dict]) -> dict | None:
     vol_ratio = round(put_vol / call_vol, 2) if call_vol > 0 else None
     oi_ratio = round(put_oi / call_oi, 2) if call_oi > 0 else None
 
-    # Interpret
+    # Raw ratio — no directional label, let the LLM interpret
     if vol_ratio is not None:
         if vol_ratio > 1.2:
-            sentiment = "BEARISH_FLOW (contrarian bullish)"
+            sentiment = "PUT_HEAVY"
         elif vol_ratio < 0.7:
-            sentiment = "BULLISH_FLOW (contrarian bearish)"
+            sentiment = "CALL_HEAVY"
         else:
-            sentiment = "NEUTRAL_FLOW"
+            sentiment = "BALANCED"
     else:
         sentiment = "unknown"
 
@@ -269,11 +269,11 @@ def compute_options_flow(chain: list[dict]) -> dict | None:
     normalized = net_delta_flow / total_premium_vol if total_premium_vol else 0
 
     if normalized > 0.15:
-        bias = "BULLISH_FLOW"
+        bias = "CALL_HEAVY_FLOW"
     elif normalized < -0.15:
-        bias = "BEARISH_FLOW"
+        bias = "PUT_HEAVY_FLOW"
     else:
-        bias = "NEUTRAL"
+        bias = "BALANCED"
 
     return {
         "net_delta_flow": round(net_delta_flow, 0),
@@ -659,11 +659,13 @@ def gather_underlying_analysis(broker: Broker, symbol: str,
 
 
 def _filter_options(chain: list[dict], spot: float, opt_type: str,
-                    max_spread_pct: float = 15.0,
-                    min_delta: float = 0.15,
-                    max_delta: float = 0.55,
+                    max_spread_pct: float = 25.0,
                     max_count: int = 4) -> list[dict]:
-    """Filter chain to tradeable near-money contracts."""
+    """Filter chain to tradeable near-money contracts.
+
+    Uses proximity to spot price as the primary filter instead of delta,
+    since Alpaca's indicative feed often returns delta=0 for 0DTE options.
+    """
     from hybrid.config import MAX_OPTIONS_PER_TYPE
 
     max_count = MAX_OPTIONS_PER_TYPE
@@ -671,26 +673,25 @@ def _filter_options(chain: list[dict], spot: float, opt_type: str,
     for c in chain:
         if c.get("option_type", "") != opt_type:
             continue
+        # Must have a bid
+        if c.get("bid", 0) <= 0:
+            continue
         # Spread check
         spread_pct = c.get("spread_pct", 999)
         if spread_pct > max_spread_pct:
             continue
-        # Delta check
-        delta = abs(c.get("delta", 0))
-        if delta < min_delta or delta > max_delta:
-            continue
-        # Near money check (within 3% of spot)
+        # Near money check (within 2% of spot for 0DTE)
         if spot > 0:
             strike = c.get("strike", 0)
-            if abs(strike - spot) / spot > 0.03:
+            if abs(strike - spot) / spot > 0.02:
                 continue
-        # Must have a bid
-        if c.get("bid", 0) <= 0:
-            continue
         filtered.append(c)
 
-    # Sort by volume descending, take top N
-    filtered.sort(key=lambda x: x.get("volume", 0), reverse=True)
+    # Sort by proximity to spot (ATM first), then by volume
+    if spot > 0:
+        filtered.sort(key=lambda x: (abs(x.get("strike", 0) - spot), -x.get("volume", 0)))
+    else:
+        filtered.sort(key=lambda x: x.get("volume", 0), reverse=True)
     return filtered[:max_count]
 
 
@@ -742,12 +743,15 @@ def build_digest(
     market_context: dict,
     analyses: dict[str, dict],
     now_et: datetime | None = None,
+    held_underlyings: set[str] | None = None,
 ) -> str:
     """Format everything into the single digest prompt for the LLM."""
     from hybrid import config
 
     if now_et is None:
         now_et = datetime.now(ET)
+    if held_underlyings is None:
+        held_underlyings = set()
 
     lines: list[str] = []
 
@@ -790,20 +794,14 @@ def build_digest(
     trades = daily_state.get("trades_today", 0)
     lines.append(f"DAILY P&L: ${dpnl:.2f} | Trades: {trades}")
 
-    # ── Recent Trade History (NEW #5) ──
+    # ── Recent Trade History (compact) ──
     recent_trades = market_context.get("recent_trades", [])
     if recent_trades:
         lines.append("")
-        lines.append("RECENT TRADES:")
-        for t in recent_trades:
-            if t.get("action") == "EXIT":
-                emoji = "W" if t.get("pnl", 0) > 0 else "L"
-                lines.append(f"  [{emoji}] {t.get('symbol', '?')} {t.get('reason', '')} "
-                             f"P&L ${t.get('pnl', 0):+.2f}")
-            else:
-                lines.append(f"  [E] {t.get('symbol', '?')} @ ${t.get('price', 0):.2f} "
-                             f"(conf {t.get('confidence', 0)}) "
-                             f"{t.get('reasoning', '')}")
+        wins = sum(1 for t in recent_trades if t.get("pnl", 0) > 0)
+        losses = len(recent_trades) - wins
+        total_pnl = sum(float(t.get("pnl", 0)) for t in recent_trades)
+        lines.append(f"RECENT: {wins}W/{losses}L P&L ${total_pnl:+.2f}")
 
     lines.append("")
 
@@ -922,8 +920,7 @@ def build_digest(
         techs = []
         rsi = analysis.get("rsi")
         if rsi is not None:
-            label = "oversold" if rsi < 30 else ("overbought" if rsi > 70 else "neutral")
-            techs.append(f"RSI(14): {rsi} ({label})")
+            techs.append(f"RSI(14): {rsi}")
 
         macd = analysis.get("macd")
         if macd:
@@ -935,8 +932,7 @@ def build_digest(
 
         vol_ratio = analysis.get("volume_ratio")
         if vol_ratio:
-            label = "high" if vol_ratio > 1.5 else ("low" if vol_ratio < 0.5 else "normal")
-            techs.append(f"Vol: {vol_ratio}x ({label})")
+            techs.append(f"Vol: {vol_ratio}x avg")
 
         mom5 = analysis.get("momentum_5")
         if mom5 is not None:
@@ -975,20 +971,15 @@ def build_digest(
                     lines.append(f"    ⚡ Unusual: {u['type'].upper()} ${u['strike']:.0f} "
                                  f"vol {u['vol']:,} vs OI {u['oi']:,} ({u['ratio']}x)")
 
-        # Options chains
+        # Options chains (compact — strike, mid, spread only)
         for opt_type, label in [("calls", "CALLS"), ("puts", "PUTS")]:
             opts = analysis.get(opt_type, [])
             if opts:
-                lines.append(f"  0DTE {label}:")
-                for o in opts:
-                    delta = o.get("delta", 0)
-                    iv = o.get("iv", 0)
-                    lines.append(
-                        f"    ${o['strike']:.0f} | mid ${o.get('mid', 0):.2f} | "
-                        f"Δ{delta:+.2f} | IV {iv*100:.0f}% | "
-                        f"spread {o.get('spread_pct', 0):.0f}% | "
-                        f"vol {o.get('volume', 0):,}"
-                    )
+                chain_str = " | ".join(
+                    f"${o['strike']:.0f}@${o.get('mid', 0):.2f}"
+                    for o in opts[:3]
+                )
+                lines.append(f"  0DTE {label}: {chain_str}")
 
         if not analysis.get("calls") and not analysis.get("puts"):
             if analysis.get("chain_error"):
@@ -996,23 +987,14 @@ def build_digest(
             else:
                 lines.append("  No tradeable 0DTE options found")
 
-        # NEW #10: Historical price level context
+        # Price level context (raw, no directional bias)
         if sup and res and price > 0:
             dist_to_sup = ((price - sup) / price) * 100
             dist_to_res = ((res - price) / price) * 100
             if dist_to_sup < 0.5:
-                lines.append(f"  📍 Price near SUPPORT (${sup:.2f}, {dist_to_sup:.1f}% away) "
-                             f"— potential bounce zone")
+                lines.append(f"  Near support ${sup:.2f} ({dist_to_sup:.1f}% away)")
             elif dist_to_res < 0.5:
-                lines.append(f"  📍 Price near RESISTANCE (${res:.2f}, {dist_to_res:.1f}% away) "
-                             f"— potential rejection zone")
-
-            # Round number magnetism
-            round_level = round(price / 5) * 5  # Nearest $5 level
-            dist_to_round = abs(price - round_level) / price * 100
-            if dist_to_round < 0.3:
-                lines.append(f"  📍 Near round number ${round_level:.0f} "
-                             f"(options pinning magnet)")
+                lines.append(f"  Near resistance ${res:.2f} ({dist_to_res:.1f}% away)")
 
         lines.append("")
 
@@ -1022,17 +1004,22 @@ def build_digest(
     lines.append(f"- Max risk per trade: ${config.MAX_RISK_PER_TRADE:.0f} "
                  f"(premium x qty x 100)")
     lines.append(f"- Max {config.MAX_CONCURRENT_POSITIONS} concurrent positions")
+    lines.append(f"- Only ONE position per underlying — do NOT trade an underlying you already hold")
+    if held_underlyings:
+        lines.append(f"- ALREADY HOLDING: {', '.join(sorted(held_underlyings))} — "
+                     f"do NOT open new positions on these. Say NO_TRADE if nothing else has conviction.")
     lines.append(f"- Stop loss: {config.STOP_LOSS_PCT:.0f}% | "
                  f"Profit target: {config.PROFIT_TARGET_PCT:.0f}%")
     lines.append("- LIMIT orders only (no market orders)")
     lines.append("- If VIX > 35: NO TRADE (crisis regime)")
     lines.append("- If high-impact macro event in next 30 min: NO TRADE")
-    lines.append("- Prefer contracts with tight spreads (<10%), "
-                 "good volume (>500), delta 0.20-0.45")
-    lines.append("- High IV rank (>70%) favors tighter stops; "
-                 "Low IV rank (<30%) favors wider targets")
-    lines.append("- Put/Call > 1.2 is contrarian bullish; < 0.7 is contrarian bearish")
-    lines.append("- Unusual options activity (vol >> OI) may signal smart money")
+    lines.append("- Prefer contracts with tight spreads (<10%), good volume (>500)")
+    lines.append("- Match direction to the trend: falling price + bearish momentum → PUT, "
+                 "rising price + bullish momentum → CALL")
+    lines.append("- RSI < 30 + falling price = strong downtrend (favor PUTS)")
+    lines.append("- RSI > 70 + rising price = strong uptrend (favor CALLS)")
+    lines.append("- Price below VWAP with negative momentum = bearish setup")
+    lines.append("- Price above VWAP with positive momentum = bullish setup")
     lines.append("")
 
     # ── JSON schema ──

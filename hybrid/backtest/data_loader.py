@@ -80,8 +80,8 @@ def load_alpaca_bars(
             url = f"{ALPACA_DATA_URL}/v2/stocks/{symbol}/bars"
             params = {
                 "timeframe": timeframe,
-                "start": current.isoformat() + "T09:30:00Z",
-                "end": current.isoformat() + "T16:00:00Z",
+                "start": current.isoformat() + "T09:30:00-04:00",
+                "end": current.isoformat() + "T16:00:00-04:00",
                 "limit": 10000,
                 "feed": "iex",
                 "adjustment": "raw",

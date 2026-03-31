@@ -46,6 +46,7 @@ ALPACA_DATA_URL = "https://data.alpaca.markets"
 # ── Claude API ──────────────────────────────────────────────
 ANTHROPIC_API_KEY = _get("ANTHROPIC_API_KEY")
 CLAUDE_MODEL = _get("CLAUDE_MODEL", "claude-sonnet-4-20250514")
+CLAUDE_CODE_MODEL = _get("CLAUDE_CODE_MODEL", "")
 
 # ── Telegram ────────────────────────────────────────────────
 TELEGRAM_BOT_TOKEN = _get("TELEGRAM_BOT_TOKEN")
@@ -66,6 +67,7 @@ ALLOWED_STRATEGIES = [
 
 # ── Timing ──────────────────────────────────────────────────
 CRON_INTERVAL_MINUTES = _int("CRON_INTERVAL_MINUTES", 10)
+EXIT_CHECK_SECONDS = _int("EXIT_CHECK_SECONDS", 15)
 ENTRY_START_ET = _get("ENTRY_START_ET", "09:45")
 ENTRY_CUTOFF_ET = _get("ENTRY_CUTOFF_ET", "15:00")
 HARD_CLOSE_ET = _get("HARD_CLOSE_ET", "15:45")

@@ -193,7 +193,15 @@ def get_option_chain(underlying: str, expiration_date: str = None,
         option_type: "call" or "put" or None for both
     """
     # Step 1: Get contract symbols from trading API
-    contracts = _get_option_contracts(underlying, expiration_date, option_type)
+    # When fetching both types, request calls and puts separately —
+    # Alpaca's limit fills with calls (C before P) and never returns puts.
+    if option_type:
+        contracts = _get_option_contracts(underlying, expiration_date, option_type)
+    else:
+        calls = _get_option_contracts(underlying, expiration_date, "call")
+        puts = _get_option_contracts(underlying, expiration_date, "put")
+        contracts = calls + puts
+
     if not contracts:
         return []
 

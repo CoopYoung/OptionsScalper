@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 def _extract_json(text: str) -> dict | None:
     """Extract a JSON decision object from LLM output.
 
-    Handles: clean JSON, markdown fences, JSON mixed with commentary.
+    Handles: clean JSON, markdown fences, JSON mixed with commentary,
+    and truncated JSON (common with small models hitting token limits).
     """
     if not text or not text.strip():
         return None
@@ -41,10 +42,12 @@ def _extract_json(text: str) -> dict | None:
             continue
 
     # Try 3: find any JSON object (outermost braces)
+    # Pre-clean: strip $ signs before numbers (LLMs write "$651" instead of 651)
     brace_match = re.search(r'\{.*\}', text, re.DOTALL)
     if brace_match:
+        cleaned = re.sub(r':\s*\$(\d)', r': \1', brace_match.group(0))
         try:
-            return json.loads(brace_match.group(0))
+            return json.loads(cleaned)
         except json.JSONDecodeError:
             pass
 
@@ -53,6 +56,33 @@ def _extract_json(text: str) -> dict | None:
         return json.loads(text.strip())
     except json.JSONDecodeError:
         pass
+
+    # Try 5: truncated JSON — model hit token limit mid-output
+    # Find the last { and try to close it
+    brace_match = re.search(r'\{.*', text, re.DOTALL)
+    if brace_match:
+        fragment = brace_match.group(0).rstrip()
+        # Try to extract key-value pairs from incomplete JSON
+        result = {}
+        for key in ("decision", "underlying", "direction", "strike",
+                     "confidence", "reasoning"):
+            # Match "key": "value" or "key": number (with optional $)
+            pat = rf'"{key}"\s*:\s*(?:"([^"]*)"|\$?([\d.]+))'
+            m = re.search(pat, fragment)
+            if m:
+                result[key] = m.group(1) if m.group(1) is not None else m.group(2)
+        if "decision" in result:
+            # Convert numeric fields
+            for field in ("strike", "confidence"):
+                if field in result:
+                    try:
+                        result[field] = float(result[field])
+                        if field == "confidence":
+                            result[field] = int(result[field])
+                    except (ValueError, TypeError):
+                        pass
+            logger.info("Recovered truncated JSON: %s", result)
+            return result
 
     return None
 
@@ -78,6 +108,15 @@ def _safe_decision(raw: dict | None, raw_text: str = "") -> dict:
         raw["confidence"] = int(raw.get("confidence", 0))
     except (ValueError, TypeError):
         raw["confidence"] = 0
+
+    # Clean up strike — LLMs sometimes output "$651" or "651.0"
+    strike = raw.get("strike")
+    if isinstance(strike, str):
+        strike = strike.replace("$", "").replace(",", "").strip()
+        try:
+            raw["strike"] = float(strike)
+        except (ValueError, TypeError):
+            pass
 
     return raw
 
@@ -124,18 +163,24 @@ class OllamaClient(LLMClient):
                  model: str = "0xroyce/plutus"):
         self.url = url.rstrip("/")
         self.model = model
-        self.timeout = 300  # 5 min — generous for slow hardware
+        self.timeout = 600  # 10 min — qwen2.5:7b needs ~6 min on Orange Pi
 
     def _call(self, prompt: str) -> str:
         resp = requests.post(
             f"{self.url}/api/generate",
             json={
                 "model": self.model,
+                "system": (
+                    "You are a trading decision engine. "
+                    "You MUST respond with ONLY a valid JSON object, nothing else. "
+                    "No commentary, no explanation outside the JSON. "
+                    "Start your response with { and end with }."
+                ),
                 "prompt": prompt,
                 "stream": False,
                 "options": {
                     "temperature": 0.3,   # Low temp for consistent decisions
-                    "num_predict": 512,    # Cap output tokens
+                    "num_predict": 300,   # Enough for JSON, not for prose
                 },
             },
             timeout=self.timeout,
@@ -211,6 +256,51 @@ class OpenAICompatibleClient(LLMClient):
         return f"OpenAICompatibleClient(model={self.model}, url={self.base_url})"
 
 
+# ── Claude Code CLI (Max subscription) ─────────────────────
+
+class ClaudeCodeClient(LLMClient):
+    """Use claude -p via the Claude Code CLI, runs through Max subscription."""
+
+    def __init__(self, model: str | None = None):
+        self.model = model  # None = use Max subscription default
+
+    def _call(self, prompt: str) -> str:
+        import os
+        import subprocess
+
+        system_msg = (
+            "You are a trading decision engine. "
+            "Respond with ONLY a valid JSON object. "
+            "No commentary outside the JSON. Start with { and end with }."
+        )
+
+        full_prompt = f"{system_msg}\n\n{prompt}"
+
+        cmd = ["claude", "-p", "-", "--output-format", "text"]
+        if self.model:
+            cmd.extend(["--model", self.model])
+
+        # Strip ANTHROPIC_API_KEY so claude uses the Max subscription
+        # instead of the API path (which has separate billing)
+        env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+
+        # Pass prompt via stdin to avoid argument length limits
+        result = subprocess.run(
+            cmd, input=full_prompt, env=env,
+            capture_output=True, text=True, timeout=120,
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"claude -p failed: {result.stdout[:200]} {result.stderr[:200]}"
+            )
+
+        return result.stdout.strip()
+
+    def __repr__(self) -> str:
+        return f"ClaudeCodeClient(model={self.model or 'default'})"
+
+
 # ── Factory ─────────────────────────────────────────────────
 
 def get_llm_client(provider: str | None = None) -> LLMClient:
@@ -241,5 +331,8 @@ def get_llm_client(provider: str | None = None) -> LLMClient:
             model=getattr(config, "OPENAI_MODEL", "gpt-4o-mini"),
             base_url=getattr(config, "OPENAI_BASE_URL", "https://api.openai.com/v1"),
         )
+    elif provider == "claude-code":
+        model = getattr(config, "CLAUDE_CODE_MODEL", None)
+        return ClaudeCodeClient(model=model or None)
     else:
         raise ValueError(f"Unknown LLM provider: {provider}")
