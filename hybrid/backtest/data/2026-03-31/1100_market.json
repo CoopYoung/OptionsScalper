@@ -1,0 +1,124 @@
+{
+  "timestamp": "2026-03-31T11:23:12.062691-04:00",
+  "source": "web_search_aggregated",
+  "note": "Alpaca API blocked by environment proxy - data from web sources",
+  "indices": {
+    "SPY": {
+      "price": 631.97,
+      "change_pct": 0.91,
+      "day_range": {
+        "low": 629.28,
+        "high": 640.37
+      },
+      "open": 640.11,
+      "prev_close": 626.19,
+      "52w_range": {
+        "low": 481.8,
+        "high": 697.84
+      }
+    },
+    "QQQ": {
+      "price": 558.28,
+      "change_pct": -0.76,
+      "day_range": {
+        "low": 555.6,
+        "high": 568.05
+      },
+      "prev_close": 562.58,
+      "52w_range": {
+        "low": 402.39,
+        "high": 637.01
+      }
+    },
+    "IWM": {
+      "price": 239.61,
+      "change_pct": 1.31,
+      "day_range": {
+        "low": 238.69,
+        "high": 245.37
+      },
+      "prev_close": 239.61,
+      "52w_range": {
+        "low": 171.73,
+        "high": 271.6
+      }
+    }
+  },
+  "broad_market": {
+    "sp500": {
+      "level": 6430.4,
+      "change": 86.68,
+      "change_pct": 1.37
+    },
+    "dow": {
+      "level": 45710.48,
+      "change": 494.34,
+      "change_pct": 1.09
+    },
+    "nasdaq": {
+      "level": 21163.95,
+      "change": 369.31,
+      "change_pct": 1.78
+    },
+    "russell_2000": {
+      "level": 2445.55,
+      "change": 31.54,
+      "change_pct": 1.31
+    }
+  },
+  "volatility": {
+    "vix": 27.57,
+    "vix_prev_close": 30.61,
+    "vix_change_pct": -8.03,
+    "vix_open": 30.81,
+    "vix_day_range": {
+      "low": 29.33,
+      "high": 31.32
+    },
+    "vix_regime": "HIGH",
+    "vix_52w_range": {
+      "low": 13.38,
+      "high": 60.13
+    },
+    "vix_march_range": {
+      "low": 20.28,
+      "high": 35.3,
+      "avg": 25.58
+    }
+  },
+  "sentiment": {
+    "fear_greed_index": 13,
+    "fear_greed_label": "Extreme Fear",
+    "fear_greed_prev": 8,
+    "note": "Lowest since 2022, 6 of 7 indicators flash Extreme Fear"
+  },
+  "macro_context": {
+    "catalyst": "Trump willing to end Iran war even with Hormuz closed",
+    "brent_crude": 107.0,
+    "gas_price_national": 4.0,
+    "consumer_confidence": 91.8,
+    "jolts_hiring_rate": 3.1,
+    "jolts_hires": 4800000,
+    "sector_leaders": [
+      "consumer_discretionary",
+      "communication_services",
+      "info_tech"
+    ],
+    "sector_laggard": "utilities",
+    "sp500_gainers": 441,
+    "quarter_end": true,
+    "month_end": true
+  },
+  "notable_moves": {
+    "MRVL": "+8% premarket, Nvidia investing $2B",
+    "NVDA": "+1%",
+    "MSFT": "+2%",
+    "XLK": "+1.5%"
+  },
+  "options_context": {
+    "is_0dte_day": true,
+    "note": "Tuesday 0DTE available since CBOE expanded to daily in 2022",
+    "extra_expiry": "Q1 end-of-month AND end-of-quarter options also expiring",
+    "expected_liquidity": "moderate (Tue/Thu less liquid than M/W/F)"
+  }
+}

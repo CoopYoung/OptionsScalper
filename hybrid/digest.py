@@ -697,24 +697,19 @@ def _filter_options(chain: list[dict], spot: float, opt_type: str,
 def _find_todays_expiry(broker: Broker, symbol: str) -> str | None:
     """Check if today is a valid 0DTE expiry for this underlying.
 
-    SPY has Mon/Wed/Fri expirations, QQQ has Mon/Wed/Fri, IWM has monthly + some weeklies.
-    Rather than fetching all expirations (heavy API call), we use day-of-week heuristics
-    and try to fetch the chain. If the chain returns contracts, today is valid.
+    Since 2022, SPY has DAILY expirations (Mon-Fri). QQQ also has daily expirations.
+    IWM has Mon/Wed/Fri + some others. Rather than hardcoding schedules,
+    we always try to fetch the chain — it returns empty if no expiry exists.
     """
     today = datetime.now(ET)
     today_str = today.strftime("%Y-%m-%d")
     weekday = today.weekday()  # 0=Mon, 4=Fri
 
-    # SPY and QQQ have Mon/Wed/Fri 0DTE. IWM has Fri + some others.
-    # Quick heuristic: try today for all — the chain call will just return empty if invalid.
     if weekday >= 5:  # Weekend
         return None
 
-    # For SPY/QQQ, check M/W/F
-    if symbol in ("SPY", "QQQ") and weekday not in (0, 2, 4):
-        # Tue/Thu — these tickers usually don't have 0DTE
-        # But check anyway in case of special expirations
-        pass
+    # Note: SPY and QQQ have daily 0DTE since CBOE expanded in 2022.
+    # IWM may not have every day. Always try the API — it's the source of truth.
 
     # Try to fetch a small chain for today's expiry
     try:

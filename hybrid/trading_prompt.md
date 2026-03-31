@@ -52,8 +52,8 @@ python3 -m hybrid.cli record-pnl -52.30              # Record closed trade P&L
 3. Max concurrent positions: 3
 4. Max contracts per trade: 5
 5. Min reward:risk ratio: 1.5:1
-6. Entry window: 09:45 - 15:00 ET only
-7. Hard close all positions by: 15:45 ET
+6. Entry window: 09:45 - 14:30 ET only (after 14:30 theta decay too extreme for 0DTE)
+7. Hard close all positions by: 15:15 ET (Alpaca auto-liquidates at 15:30)
 8. NEVER enter naked short options — defined-risk only (spreads or long options)
 
 ## Your Analysis Process (follow this order)

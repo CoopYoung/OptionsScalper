@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-03-31T11:23:12.062691-04:00",
+  "source": "unavailable",
+  "note": "Alpaca API blocked by environment proxy - no chain data available",
+  "SPY": {
+    "contracts": [],
+    "error": "proxy_blocked"
+  },
+  "QQQ": {
+    "contracts": [],
+    "error": "proxy_blocked"
+  },
+  "IWM": {
+    "contracts": [],
+    "error": "proxy_blocked"
+  }
+}
