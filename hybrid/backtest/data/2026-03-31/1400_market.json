@@ -1,0 +1,148 @@
+{
+  "timestamp": "2026-03-31T14:17:00-04:00",
+  "source": "web_search_aggregated",
+  "note": "Alpaca API blocked by environment egress proxy. Data from web search. Rally continuing into power hour.",
+  "equities": {
+    "SPY": {
+      "price": 650.0,
+      "open": 640.11,
+      "high": 650.50,
+      "low": 629.29,
+      "prev_close": 634.09,
+      "change_pct": 2.51,
+      "52w_high": 697.84,
+      "52w_low": 481.80,
+      "ytd_return_pct": -6.50,
+      "note": "Estimated from S&P 500 at ~6499 (+2.45%). Continuing afternoon rally, testing $650 resistance."
+    },
+    "QQQ": {
+      "price": 583.50,
+      "open": 567.14,
+      "high": 584.00,
+      "low": 555.60,
+      "prev_close": 563.08,
+      "change_pct": 3.63,
+      "52w_high": 637.01,
+      "52w_low": 402.39,
+      "note": "Estimated from Nasdaq at ~21490 (+3.34%). Tech still leading."
+    },
+    "IWM": {
+      "price": 241.50,
+      "prev_close": 236.21,
+      "change_pct": 2.24,
+      "note": "Estimated from Russell 2000 rally. Small caps lagging mega-cap tech."
+    }
+  },
+  "indices": {
+    "SPX": {
+      "price": 6499.27,
+      "change_pts": 155.55,
+      "change_pct": 2.45,
+      "prev_close": 6343.72,
+      "note": "Approaching psychological 6500 level"
+    },
+    "DJIA": {
+      "price": 46191.71,
+      "change_pts": 975.57,
+      "change_pct": 2.16,
+      "note": "Surged 975+ points. Briefly above 1100 points earlier."
+    },
+    "NASDAQ": {
+      "price": 21490.05,
+      "change_pts": 695.41,
+      "change_pct": 3.34,
+      "note": "Standout performer. Tech-led rally."
+    }
+  },
+  "volatility": {
+    "VIX": {
+      "price": 29.60,
+      "open": 30.81,
+      "high": 31.32,
+      "low": 29.33,
+      "prev_close": 30.61,
+      "change_pct": -4.70,
+      "regime": "HIGH",
+      "march_high": 35.30,
+      "march_low": 20.28,
+      "march_avg": 25.58,
+      "note": "VIX pulled back from morning lows of 27.71 to 29.60 — vol compression stalling as afternoon progresses. Still HIGH regime."
+    }
+  },
+  "sentiment": {
+    "cnn_fear_greed": {
+      "value": 13,
+      "label": "Extreme Fear",
+      "note": "Unchanged from earlier. Extreme fear persists despite massive intraday rally. Strong contrarian bullish setup."
+    }
+  },
+  "macro": {
+    "catalyst": "Iranian President Pezeshkian signaled openness to negotiations. Trump willing to end war even with Hormuz closed.",
+    "oil": {
+      "brent": 108.00,
+      "wti": 102.00,
+      "note": "Oil off highs but still elevated. WTI ~$102. Crude dropped 11% on peace hopes."
+    },
+    "fed": "Powell says rates are 'in a good place' to wait and see how Middle East situation resolves.",
+    "consumer_confidence": 91.8,
+    "quarter_end": true,
+    "month_end": true,
+    "q1_performance": {
+      "SPX": -5.0,
+      "DJIA": -4.0,
+      "NASDAQ": -7.0,
+      "note": "Worst quarter since 2022 for all major indices."
+    }
+  },
+  "sector_highlights": {
+    "leaders": ["Technology (+3.3%)", "Communication Services", "Consumer Discretionary"],
+    "laggards": ["Energy (mixed on peace hopes)", "Utilities"],
+    "notable": [
+      "Meta +3%",
+      "NVDA +5%",
+      "AMZN +5%",
+      "MSFT +2-5%",
+      "MRVL +8% (Nvidia $2B investment)",
+      "APLS surging (Biogen $5.6B acquisition)",
+      "CNTB surging (Eli Lilly $7.8B acquisition)"
+    ]
+  },
+  "technicals": {
+    "SPY": {
+      "pattern": "V_shaped_reversal_continuation",
+      "morning_action": "Opened at $640.11, sold off hard to $629.29 (-1.7%)",
+      "midday_action": "Massive reversal from lows starting ~12:00 ET",
+      "afternoon_action": "Continuing higher, testing $650 round number resistance",
+      "key_levels": {
+        "support_1": 645.0,
+        "support_2": 634.0,
+        "resistance_1": 650.0,
+        "resistance_2": 655.0,
+        "vwap_estimate": 640.0,
+        "morning_low": 629.29,
+        "morning_high": 640.37
+      },
+      "intraday_range": "$629.29 - $650.50 = $21.21 (3.4% range)",
+      "gex_context": {
+        "pre_market_mm_exposure_630": -66600000,
+        "bear_bull_ratio": "131:1",
+        "daddy_bear": 630,
+        "daddy_bull": 654,
+        "note": "Pre-market GEX showed massive negative dealer gamma at 630-640. SPY blew through this zone, triggering a massive dealer short-gamma squeeze. Dealers were forced to buy shares to delta-hedge as calls went ITM, creating positive feedback loop."
+      }
+    }
+  },
+  "market_regime": {
+    "primary": "HIGH_VOL_RELIEF_RALLY_CONTINUATION",
+    "vix_regime": "HIGH (29.60, off morning lows but still compressing from 30.81 open)",
+    "trend": "Strong bullish — V-reversal from morning lows, continuation into power hour",
+    "dealer_gamma": "Short gamma squeeze in progress. Dealers chasing the rally higher.",
+    "iv_surface": "Elevated. VIX rebound from 27.71 to 29.60 suggests some hedging activity. 0DTE call premiums would have been extremely profitable for morning low buyers.",
+    "time_regime": "POWER_HOUR_SETUP (2:00-3:15 ET) — institutional flows, MOC imbalances, quarter-end rebalancing"
+  },
+  "options_flow_context": {
+    "note": "No direct options chain data available due to API proxy block. Pre-market analysis showed 131:1 bear-to-bull GEX ratio at 630 strike. The rally through 630-650 represents a massive short-covering and gamma squeeze event.",
+    "pre_market_key_strikes": [630, 635, 640, 650, 654],
+    "implied_move": "GEX data suggested Daddy Bull at 654 ($0.69M) — SPY approaching this level"
+  }
+}
