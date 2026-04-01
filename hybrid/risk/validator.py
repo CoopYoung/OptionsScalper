@@ -133,7 +133,7 @@ def validate_new_order(
     # ── Buying power check ──
     if side == "buy" and limit_price:
         cost = limit_price * qty * 100  # Options are 100 shares per contract
-        buying_power = account.get("buying_power", 0)
+        buying_power = float(account.get("buying_power", 0))
         if cost > buying_power:
             violations.append(
                 f"Insufficient buying power: need ${cost:.2f}, "

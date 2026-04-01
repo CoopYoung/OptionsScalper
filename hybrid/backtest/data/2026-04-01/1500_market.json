@@ -1,0 +1,118 @@
+{
+  "timestamp": "2026-04-01T15:05:00-04:00",
+  "snapshot_hour": "1500",
+  "source": "web_search_aggregate",
+  "note": "Alpaca API blocked by environment proxy. Data sourced from web search (CNBC, Yahoo Finance, TradingEconomics, 24/7 Wall St, etc.)",
+
+  "indices": {
+    "SPX": {"price": 6598.25, "change_pct": 1.07, "prev_close": 6528.52, "day_high": 6600, "day_low": 6450},
+    "NDX": {"price": 21939.70, "change_pct": 1.62},
+    "DJI": {"price": 46732.14, "change_pts": 390.63, "change_pct": 0.84},
+    "RUT": {"price": 2536.46, "change_pct": 1.61}
+  },
+
+  "etfs": {
+    "SPY": {
+      "price": 656.22, "change_pct": 0.90, "prev_close": 650.34,
+      "open": 638.94, "day_low": 637.98, "day_high": 656.25,
+      "52wk_high": 697.84, "52wk_low": 481.80,
+      "note": "Rallied from $639 open to $656+ on Iran peace hopes. V-reversal consolidation"
+    },
+    "QQQ": {
+      "price": 586.32, "change_pct": 1.56, "prev_close": 577.18,
+      "day_low": 576.75, "day_high": 586.57,
+      "note": "Tech leading. OpenAI funding, SpaceX IPO filing, AI infrastructure theme"
+    },
+    "IWM": {
+      "price": 251.43, "change_pct": 1.38, "prev_close": 248.00,
+      "day_low": 248.00, "day_high": 252.08,
+      "note": "Consolidating after yesterday's +3.41% explosive move"
+    }
+  },
+
+  "volatility": {
+    "VIX": {
+      "current": 23.70,
+      "prev_close": 25.25,
+      "open": 24.30,
+      "day_low": 23.0,
+      "day_high": 25.13,
+      "change_pct": -6.14,
+      "regime": "NORMAL",
+      "march_avg": 25.56,
+      "march_range": {"low": 20.28, "high": 35.30},
+      "note": "2-session decline from 30.61 to 23.70 = 22.6% compression. Regime confirmed NORMAL."
+    }
+  },
+
+  "commodities": {
+    "WTI_crude": {"price": 102.28, "prev_close": 101.38, "range": {"low": 101.56, "high": 103.31}, "note": "Hovering around $102. Strait of Hormuz crisis keeps floor under prices."},
+    "Brent_crude": {"price": 105.27, "change_pct": -2.40},
+    "Gold": {"price": 4747, "change_pct": 2.78, "note": "4th consecutive session higher. Goldman target $5,400 EOY. Central bank buying."}
+  },
+
+  "bonds": {
+    "10yr_yield": 4.30,
+    "30yr_yield": 4.897,
+    "2yr_yield": 3.80,
+    "10yr_day_range": {"low": 4.259, "high": 4.334},
+    "note": "Yields easing on growth concerns. 30Y just below critical 5.0% level. Fed hike probability dropped to ~20%."
+  },
+
+  "sentiment": {
+    "fear_greed_index": {"value": 14, "label": "Extreme Fear", "note": "3rd consecutive day. 6/7 indicators at extreme fear. MoneyMorning reports single digits intraday."},
+    "put_call_ratio": null
+  },
+
+  "macro": {
+    "ADP_jobs": {"actual": 62000, "estimate": 40000, "note": "Goldilocks - resilient but cooling"},
+    "fed_powell": "Rates in good place to wait and see. Tariffs = one-time price bump. Fed hike probability ~20%.",
+    "geopolitical": "Trump says Iran asked for ceasefire. Condition: Strait of Hormuz open and clear. US forces to leave in 2-3 weeks."
+  },
+
+  "sector_performance": {
+    "energy": -4.0,
+    "technology": 1.56,
+    "consumer_discretionary": "positive",
+    "communication_services": "positive",
+    "utilities": "lagging",
+    "breadth": "441/500 S&P components up, 10/11 sectors green",
+    "notable_movers": {
+      "LLY": "+$40 (FDA GLP-1 pill approval)",
+      "NKE": "-12% (muted guidance)",
+      "MRVL": "+8% (Nvidia $2B investment)"
+    }
+  },
+
+  "catalysts": [
+    "Iran ceasefire request — conditional on Strait of Hormuz reopening",
+    "Trump: US forces leave Iran in 2-3 weeks",
+    "WTI crude ~$102 — war premium partially unwound",
+    "SpaceX IPO filing at $1.75T valuation",
+    "OpenAI mega funding round (Nvidia, Amazon, SoftBank)",
+    "Eli Lilly FDA approval for GLP-1 weight loss pill",
+    "Nike -12% on muted guidance",
+    "Q2 Day 1 — fresh capital deployment by fund managers",
+    "ADP jobs +62k goldilocks",
+    "Fed Powell: hike probability dropped to 20%",
+    "Markets closed Friday (Good Friday) — shortened week"
+  ],
+
+  "market_regime": {
+    "trend": "BULLISH_CONTINUATION",
+    "volatility_regime": "NORMAL (fully transitioned from HIGH)",
+    "breadth": "BROAD (441/500 up, tech + small caps both green)",
+    "sentiment_signal": "CONTRARIAN_BULLISH (extreme fear + strong rally = resolution)",
+    "gex_regime": "POSITIVE_GAMMA (SPY above $656 gamma flip zone)",
+    "key_levels": {
+      "SPY_support": [648, 650, 654],
+      "SPY_resistance": [656.25, 660, 665],
+      "gamma_flip_zone": "656-660 (SPY above this = positive gamma feedback)",
+      "QQQ_resistance": [586.57, 590, 595],
+      "IWM_support": [248, 250]
+    }
+  },
+
+  "options_chain_data": null,
+  "options_chain_note": "Unable to fetch options chain — Alpaca API blocked by environment proxy. 0DTE chains expired worthless by this time (3:05 PM, 10 min before hard close)."
+}
