@@ -1,0 +1,110 @@
+{
+  "timestamp": "2026-04-01T12:10:00-04:00",
+  "source": "web_search_aggregated",
+  "note": "Alpaca API blocked by environment proxy. Data sourced from web search of financial sites.",
+  "indices": {
+    "SPY": {
+      "price": 654.0,
+      "open": 638.94,
+      "high": 656.25,
+      "low": 637.98,
+      "prev_close": 650.34,
+      "change_pct": 0.56,
+      "volume_note": "Below average (1.72M vs 113M avg at time of search)"
+    },
+    "QQQ": {
+      "price": 582.72,
+      "open": 577.18,
+      "change_pct": 0.96,
+      "prev_close": 577.18
+    },
+    "IWM": {
+      "price": 250.21,
+      "open": 248.0,
+      "change_pct": 0.89,
+      "prev_close": 248.0
+    },
+    "SP500": {
+      "price": 6605.62,
+      "change_pts": 77.10,
+      "change_pct": 1.18
+    },
+    "NASDAQ": {
+      "price": 21959.54,
+      "change_pts": 368.92,
+      "change_pct": 1.71
+    },
+    "DOW": {
+      "change_pct": 0.6,
+      "change_pts": 286
+    },
+    "RUSSELL_2000": {
+      "price": 2493.32
+    }
+  },
+  "volatility": {
+    "VIX": {
+      "current": 24.5,
+      "open": 24.30,
+      "high": 25.13,
+      "low": 24.21,
+      "prev_close": 25.25,
+      "change_pct": -2.97,
+      "regime": "NORMAL",
+      "52w_low": 13.38,
+      "52w_high": 60.13,
+      "march_avg": 31.05
+    }
+  },
+  "commodities": {
+    "WTI_crude": {
+      "price": 99.82,
+      "change_pct": -1.54,
+      "note": "Dropped below $100 on Iran peace hopes. Range $99.82-$103.04 across sources."
+    },
+    "gold": {
+      "price": 4746.86,
+      "change_note": "+$142 from yesterday. Goldman target $5400 EOY.",
+      "rising_consecutive_sessions": 4
+    }
+  },
+  "fixed_income": {
+    "US_10Y": {
+      "yield": 4.317,
+      "change_bps": 1,
+      "note": "Little changed as investors monitor Iran developments"
+    },
+    "US_2Y": {
+      "yield": 3.799,
+      "change_bps": 0
+    },
+    "US_30Y": {
+      "yield": 4.903,
+      "change_bps": 1
+    }
+  },
+  "sentiment": {
+    "fear_greed_index": 15,
+    "fear_greed_label": "Extreme Fear",
+    "note": "Third consecutive day at extreme fear. Six of seven indicators at extreme fear. Possible single-digit reading per Money Morning."
+  },
+  "catalysts": [
+    "Iran de-escalation: Trump says US forces to leave in 2-3 weeks",
+    "ADP jobs: +62k vs 40k estimate (goldilocks)",
+    "Oil below $100: war premium unwinding",
+    "LLY +$40 on FDA GLP-1 pill approval for weight loss",
+    "OpenAI funding round (Nvidia, Amazon, SoftBank) supporting QQQ",
+    "Good Friday market closure April 3 (Friday)"
+  ],
+  "market_regime": {
+    "trend": "bullish_recovery",
+    "vix_regime": "NORMAL (transitioning from HIGH)",
+    "breadth": "Broad risk-on, small caps leading yesterday, tech catching up today",
+    "gex_assessment": "Dealers transitioning short gamma to neutral/long gamma. Gamma flip zone ~$655-660 SPY.",
+    "key_levels": {
+      "SPY_support": [638, 648, 650],
+      "SPY_resistance": [656.25, 658, 665],
+      "gamma_flip_zone": "655-660"
+    }
+  }
+}
