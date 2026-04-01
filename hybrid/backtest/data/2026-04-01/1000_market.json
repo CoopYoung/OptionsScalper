@@ -1,0 +1,96 @@
+{
+  "timestamp": "2026-04-01T10:10:00-04:00",
+  "hour_label": "1000",
+  "source": "web_search_aggregated",
+  "note": "Alpaca API blocked by environment proxy; data from Yahoo Finance, CNBC, 247WallSt, TradingEconomics web searches",
+  "equities": {
+    "SPY": {
+      "price": 653.94,
+      "open": 638.94,
+      "high": 656.25,
+      "low": 650.34,
+      "prev_close": 649.71,
+      "change_pct": 0.65,
+      "intraday_range": 17.31,
+      "volume_note": "1.72M at ~10:10 (vs 113M avg daily)"
+    },
+    "QQQ": {
+      "price": 577.18,
+      "change_pct": 0.95,
+      "note": "Nasdaq +0.96% at open"
+    },
+    "IWM": {
+      "price": 248.0,
+      "change_pct": 3.41,
+      "note": "Russell 2000 leading, small caps strong"
+    }
+  },
+  "indices": {
+    "SP500": {
+      "level": 6568.11,
+      "change_pct": 0.61
+    },
+    "DJIA": {
+      "level": 46584.16,
+      "change_pct": 0.52
+    },
+    "NASDAQ": {
+      "level": 21797.88,
+      "change_pct": 0.96
+    },
+    "RUSSELL2000": {
+      "level": 2493.32,
+      "change_pct": 3.41
+    }
+  },
+  "volatility": {
+    "VIX": {
+      "level": 25.25,
+      "prev_close": 30.61,
+      "open": 29.53,
+      "high": 29.64,
+      "low": 25.08,
+      "change_pct": -17.51,
+      "regime": "NORMAL_HIGH_TRANSITIONING",
+      "note": "Massive vol crush from 30.61 to 25.25; crossed from HIGH to NORMAL regime"
+    }
+  },
+  "sentiment": {
+    "fear_greed_index": 15,
+    "fear_greed_label": "Extreme Fear",
+    "note": "MoneyMorning reports possible single-digit reading; historically strong contrarian bullish signal"
+  },
+  "commodities": {
+    "WTI_crude": {
+      "price": 100.3,
+      "change_pct": -1.1
+    },
+    "Brent_crude": {
+      "price": 105.27,
+      "change_pct": -2.4
+    },
+    "Gold": {
+      "price": 4524,
+      "note": "+15% YTD"
+    }
+  },
+  "catalysts": [
+    "Trump says US forces leaving Iran in 2-3 weeks \u2014 de-escalation catalyst",
+    "ADP jobs +62k (beat estimate of 40k, below Feb 66k)",
+    "OpenAI funding round backed by Nvidia, Amazon, SoftBank \u2014 AI sector bullish",
+    "Nike -12% on muted guidance",
+    "RH -21% on disappointing outlook",
+    "Oil prices dropping on peace hopes (WTI -1.1%, Brent -2.4%)",
+    "Q2 first trading day \u2014 new quarter positioning"
+  ],
+  "market_regime": {
+    "trend": "BULLISH_REVERSAL",
+    "vol_regime": "HIGH_COMPRESSING",
+    "sector_leadership": "Tech, Consumer Discretionary, Communication Services",
+    "rotation": "Small caps (IWM +3.4%) leading; classic risk-on breadth",
+    "gex_estimate": "Transitioning from negative to neutral gamma as VIX drops below 26; dealer hedging flows becoming less amplifying",
+    "iv_surface": "Elevated but rapidly compressing; 0DTE premiums still rich relative to realized vol"
+  },
+  "options_chains": null,
+  "options_chains_note": "Unavailable \u2014 Alpaca API blocked by proxy"
+}
