@@ -1,0 +1,111 @@
+{
+  "timestamp": "2026-04-01T11:18:00-04:00",
+  "snapshot_hour": "1100",
+  "source": "web_search_aggregate",
+  "underlyings": {
+    "SPY": {
+      "price": 654.57,
+      "change_pct": 0.65,
+      "prev_close": 650.34,
+      "day_open": 638.94,
+      "day_high": 656.25,
+      "day_low": 637.98,
+      "intraday_pattern": "RECOVERY",
+      "narrative": "Opened at $638.94 (gap down), rallied $17+ to $656.25 high, now $654.57. Second consecutive V-shaped reversal from gap-down open.",
+      "52wk_high": 697.84,
+      "52wk_low": 481.80,
+      "ytd_change_pct": -5.16,
+      "1yr_change_pct": 18.28
+    },
+    "QQQ": {
+      "price": 582.72,
+      "change_pct": 0.96,
+      "prev_close": 577.18,
+      "narrative": "Tech rallying on risk-on sentiment and OpenAI funding round. Nasdaq +0.96%."
+    },
+    "IWM": {
+      "price": 250.21,
+      "change_pct": 0.89,
+      "prev_close": 248.00,
+      "narrative": "Russell 2000 continuing broad risk-on rotation from yesterday's +3.41% surge."
+    }
+  },
+  "indices": {
+    "SP500": {
+      "price": 6568.11,
+      "change": 39.59,
+      "change_pct": 0.61
+    },
+    "DJIA": {
+      "price": 46584.16,
+      "change": 242.65,
+      "change_pct": 0.52
+    },
+    "NASDAQ": {
+      "price": 21797.88,
+      "change": 207.25,
+      "change_pct": 0.96
+    },
+    "RUSSELL2000": {
+      "price": 2518.68,
+      "change_pct": 0.89
+    }
+  },
+  "volatility": {
+    "VIX": {
+      "current": 24.50,
+      "prev_close": 25.25,
+      "open": 24.30,
+      "day_high": 25.13,
+      "day_low": 24.21,
+      "change_pct": -2.97,
+      "regime": "NORMAL",
+      "note": "Continuing compression from 30.61 (March 31 open) to 24-25 range. Regime transition from HIGH to NORMAL confirmed."
+    }
+  },
+  "commodities": {
+    "WTI_crude": {
+      "price": 102.50,
+      "range": "101.56-103.31",
+      "note": "Volatile - war premium unwinding partially on peace hopes, but Hormuz still closed"
+    },
+    "gold": {
+      "price": 4720.00,
+      "change_pct": 1.0,
+      "note": "4-session winning streak, Goldman $5400 year-end target"
+    },
+    "10yr_treasury": {
+      "yield": 4.416,
+      "change_pct": 2.03
+    },
+    "30yr_treasury": {
+      "yield": 4.904
+    }
+  },
+  "sentiment": {
+    "fear_greed_index": 15,
+    "fear_greed_label": "Extreme Fear",
+    "note": "3rd consecutive day at extreme fear. MoneyMorning reports possible single-digit reading. Historical pattern: single-digit readings in April 2025 and November 2025 both marked significant bottoms."
+  },
+  "catalysts": {
+    "primary": "Iran de-escalation - Trump said US forces leaving in 2-3 weeks",
+    "secondary": [
+      "OpenAI funding round backed by Nvidia, Amazon, SoftBank - bullish AI",
+      "ADP jobs +62k vs +40k est (goldilocks: resilient but cooling)",
+      "Oil war premium unwinding (WTI pulling back from $107 swing high)",
+      "Q1 ends with major rally - Dow +1125 pts on March 31"
+    ],
+    "risks": [
+      "Iran headline reversal could spike VIX back above 28",
+      "Strait of Hormuz still closed - oil supply risk remains",
+      "30yr Treasury yield at 4.904% - rate concerns",
+      "SPY still -5.16% YTD despite recent rally"
+    ]
+  },
+  "market_regime": {
+    "trend": "BULLISH_RECOVERY",
+    "volatility_regime": "ELEVATED_COMPRESSING",
+    "breadth": "BROAD_RISK_ON",
+    "sector_leadership": "Small caps leading (IWM), tech following"
+  }
+}
