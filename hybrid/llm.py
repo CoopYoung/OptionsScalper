@@ -206,7 +206,17 @@ class OpenAICompatibleClient(LLMClient):
             },
             json={
                 "model": self.model,
-                "messages": [{"role": "user", "content": prompt}],
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a quantitative 0DTE options trading analyst. "
+                            "Analyze the market data provided and make a trading decision. "
+                            "Respond with ONLY a valid JSON object, no commentary."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
                 "temperature": 0.3,
                 "max_tokens": 512,
                 "response_format": {"type": "json_object"},

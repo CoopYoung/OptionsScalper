@@ -1,0 +1,131 @@
+{
+  "timestamp": "2026-04-01T13:10:00-04:00",
+  "source": "web_search_aggregated",
+  "note": "Alpaca API blocked by environment proxy. Data from web search.",
+
+  "underlyings": {
+    "SPY": {
+      "price": 655.06,
+      "change_pct": 0.65,
+      "open": 638.94,
+      "high": 656.25,
+      "low": 637.98,
+      "prev_close": 650.34,
+      "day_range": [637.98, 656.25],
+      "52w_high": 697.84,
+      "52w_low": 481.80
+    },
+    "QQQ": {
+      "price": 586.21,
+      "change_pct": 1.56,
+      "open": 577.18,
+      "high": 586.57,
+      "low": 564.21,
+      "prev_close": 577.18,
+      "day_range": [564.21, 586.57]
+    },
+    "IWM": {
+      "price": 251.43,
+      "change_pct": 1.38,
+      "open": 248.00,
+      "high": 252.08,
+      "low": 249.89,
+      "prev_close": 248.00,
+      "day_range": [248.00, 252.08]
+    }
+  },
+
+  "volatility": {
+    "vix": 23.77,
+    "vix_change_pct": -5.86,
+    "vix_open": 24.30,
+    "vix_high": 25.13,
+    "vix_low": 24.21,
+    "vix_prev_close": 25.25,
+    "vix_regime": "NORMAL",
+    "vix_52w_high": 60.13,
+    "vix_52w_low": 13.38,
+    "march_avg": 25.56,
+    "march_range": [20.28, 35.30],
+    "note": "Confirmed regime transition HIGH→NORMAL. Second consecutive day below 26."
+  },
+
+  "sentiment": {
+    "fear_greed_index": 14,
+    "fear_greed_label": "Extreme Fear",
+    "fear_greed_note": "Third consecutive day at extreme fear. Money Morning reports single-digit readings recently. Historical pattern: single-digit F&G marked significant bottoms in April 2025 and November 2025."
+  },
+
+  "commodities": {
+    "wti_crude": {
+      "price": 99.82,
+      "range": [98.79, 103.31],
+      "note": "WTI broke below $100 psychological level. War premium ~70% unwound. Iran ceasefire catalyst."
+    },
+    "brent_crude": {
+      "price": 105.27,
+      "note": "Brent down from March peak of $115. Goldman raised forecast to $110 avg through April."
+    },
+    "gold": {
+      "price": 4748,
+      "change": 100,
+      "note": "Rising alongside equities - unusual. Goldman $5400 EOY target. Central bank buying 60 tonnes/month."
+    },
+    "bitcoin": {
+      "price": 68448,
+      "change": 213
+    }
+  },
+
+  "treasuries": {
+    "us_10y": 4.416,
+    "us_2y": 3.799,
+    "us_30y": 4.904,
+    "note": "Rising yields with rising equities = risk-on. 30Y near 5.0% potential equity ceiling."
+  },
+
+  "macro": {
+    "adp_jobs": {
+      "actual": 62000,
+      "estimate": 40000,
+      "previous": 66000,
+      "note": "Goldilocks: resilient but cooling. Not hot enough to hike, not cold enough to panic."
+    },
+    "fed_funds_easing_expected": "75-100 bps by year-end 2026",
+    "catalysts": [
+      "Trump: Iran asked for CEASEFIRE",
+      "Trump: US forces leave Iran in 2-3 weeks",
+      "LLY: FDA approved GLP-1 pill for weight loss",
+      "OpenAI funding: Nvidia, Amazon, SoftBank backing",
+      "SpaceX IPO filing ($1.75T valuation)",
+      "ORCL: cutting jobs for AI data center investment",
+      "NKE: -12% on muted guidance",
+      "OPEC+ meets April 5"
+    ]
+  },
+
+  "gex_assessment": {
+    "regime": "neutral_to_positive",
+    "key_levels": {
+      "strong_support": [638, 640, 648, 650],
+      "consolidation_center": [654, 655],
+      "gamma_flip_zone": [656, 660],
+      "upside_target": [665, 670]
+    },
+    "dealer_positioning": "Dealers completed short-gamma-to-neutral transition. VIX settling at 23.77 confirms. Positive gamma engagement above $656-660 would accelerate upside.",
+    "note": "Estimated from price action and vol regime. No direct GEX feed available."
+  },
+
+  "market_regime": {
+    "trend": "bullish_continuation",
+    "breadth": "broad_based_risk_on",
+    "sector_leadership": "tech_leading_with_broad_participation",
+    "time_regime": "AFTERNOON_SESSION",
+    "q2_start": true,
+    "market_closed_friday": true,
+    "note": "Iran ceasefire hopes. VIX crushing. Extreme fear contrarian bullish. Oil below $100. Two consecutive V-shaped reversals."
+  },
+
+  "options_chain_snapshot": null,
+  "chain_note": "Options chain data unavailable - Alpaca API blocked by proxy."
+}
