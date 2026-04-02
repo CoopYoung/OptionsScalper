@@ -1,0 +1,111 @@
+{
+  "timestamp": "2026-04-02T15:18:00-04:00",
+  "source": "web_search_aggregate",
+  "note": "API proxy blocked; data from web search aggregation. 3:18 PM ET - post hard close snapshot.",
+  "underlyings": {
+    "SPY": {
+      "price": 655.06,
+      "prev_close": 650.34,
+      "change_pct": 0.73,
+      "day_high": 657.92,
+      "day_low": 638.0,
+      "intraday_range": 19.92,
+      "v_reversal_magnitude": 19.92,
+      "open_est": 639.0,
+      "note": "V-reversal from $639 to $658, then faded to $655 into close"
+    },
+    "QQQ": {
+      "price": 584.31,
+      "prev_close": 577.18,
+      "change_pct": 1.24,
+      "day_high": 587.74,
+      "day_low": 565.0,
+      "intraday_range": 22.74,
+      "note": "Tech held gains better than SPY, QQQ outperformed"
+    },
+    "IWM": {
+      "price": 250.03,
+      "prev_close": 247.62,
+      "change_pct": 0.97,
+      "day_high": 252.37,
+      "day_low": 243.82,
+      "intraday_range": 8.55,
+      "note": "Small caps recovered from pre-market lows, domestic rotation"
+    }
+  },
+  "volatility": {
+    "VIX": {
+      "level": 25.57,
+      "prev_close": 25.25,
+      "change_pct": 1.27,
+      "regime": "HIGH",
+      "day_high": 26.86,
+      "day_low": 23.5,
+      "iv_percentile_est": 78,
+      "note": "VIX rose into afternoon despite equity recovery - weekend risk hedging"
+    }
+  },
+  "commodities": {
+    "WTI_crude": {
+      "price": 112.0,
+      "prev_close": 100.0,
+      "change_pct": 12.0,
+      "day_high": 114.0,
+      "day_low": 97.5,
+      "intraday_range": 16.5,
+      "note": "Oil surged on Trump Iran escalation rhetoric, $14+ intraday range"
+    },
+    "gold": {
+      "price": 4688.0,
+      "change_pct": -2.6,
+      "note": "Unusual selloff during geopolitical stress - forced liquidation/margin calls"
+    }
+  },
+  "sentiment": {
+    "fear_greed_index": 16,
+    "fear_greed_label": "Extreme Fear",
+    "spx_put_call_ratio": 1.32,
+    "spy_oi_put_call_ratio": 1.98,
+    "note": "4th+ consecutive day in extreme fear territory"
+  },
+  "indices": {
+    "SP500": {
+      "price": 6575.32,
+      "change_pct": 0.72,
+      "note": "S&P defied Iran tensions to post gains amid volatile trading"
+    },
+    "DJIA": {
+      "price": 46417.81,
+      "change_pct": -0.32,
+      "note": "Dow underperformed, consumer discretionary weakness"
+    },
+    "NASDAQ": {
+      "price": 20450.0,
+      "change_pct": 1.2,
+      "note": "Tech recovery led by short covering"
+    }
+  },
+  "gex_levels": {
+    "SPY": {
+      "gamma_flip_zone": [
+        656,
+        660
+      ],
+      "support_1": 650,
+      "support_2": 638,
+      "support_3": 630,
+      "resistance_1": 660,
+      "resistance_2": 665,
+      "dealer_gamma": "negative",
+      "note": "SPY below gamma flip zone all afternoon"
+    }
+  },
+  "catalysts": {
+    "iran_war": "Trump escalated rhetoric, Iran/Oman working on Hormuz shipping protocol",
+    "oil_shock": "WTI +12% to $112 on Iran war escalation",
+    "hormuz_deadline": "April 6 blockade deadline is weekend binary event",
+    "opec_meeting": "April 5 OPEC meeting",
+    "nfp": "March Jobs Report Friday AM - markets closed (Good Friday), reaction Monday",
+    "tariffs": "Drug companies signing tariff exemption deals"
+  }
+}

@@ -1,0 +1,149 @@
+{
+  "timestamp": "2026-04-02T15:18:00-04:00",
+  "source": "synthetic_estimate",
+  "note": "No API access for live chains. Synthetic estimates based on closing prices and VIX regime. 0DTE options essentially expired by 3:18 PM - theta nearly 100% decayed.",
+  "expiry": "2026-04-02",
+  "chains": {
+    "SPY": {
+      "underlying_price": 655.06,
+      "atm_strike": 655,
+      "iv_regime": "HIGH",
+      "vix": 25.57,
+      "note": "0DTE expired/near-zero value. Included for schema consistency.",
+      "options": [
+        {
+          "strike": 640,
+          "type": "call",
+          "bid": 14.5,
+          "ask": 15.5,
+          "mid": 15.0,
+          "iv_est": 0.28,
+          "delta_est": 0.92,
+          "note": "deep ITM, near intrinsic"
+        },
+        {
+          "strike": 645,
+          "type": "call",
+          "bid": 9.5,
+          "ask": 10.5,
+          "mid": 10.0,
+          "iv_est": 0.27,
+          "delta_est": 0.85,
+          "note": "ITM"
+        },
+        {
+          "strike": 650,
+          "type": "call",
+          "bid": 5.0,
+          "ask": 5.8,
+          "mid": 5.4,
+          "iv_est": 0.26,
+          "delta_est": 0.7,
+          "note": "slightly ITM"
+        },
+        {
+          "strike": 655,
+          "type": "call",
+          "bid": 1.2,
+          "ask": 1.8,
+          "mid": 1.5,
+          "iv_est": 0.25,
+          "delta_est": 0.45,
+          "note": "ATM, 0DTE theta nearly decayed"
+        },
+        {
+          "strike": 660,
+          "type": "call",
+          "bid": 0.1,
+          "ask": 0.3,
+          "mid": 0.2,
+          "iv_est": 0.3,
+          "delta_est": 0.12,
+          "note": "OTM, near worthless"
+        },
+        {
+          "strike": 665,
+          "type": "call",
+          "bid": 0.01,
+          "ask": 0.05,
+          "mid": 0.03,
+          "iv_est": 0.35,
+          "delta_est": 0.03,
+          "note": "deep OTM"
+        },
+        {
+          "strike": 640,
+          "type": "put",
+          "bid": 0.01,
+          "ask": 0.05,
+          "mid": 0.03,
+          "iv_est": 0.35,
+          "delta_est": -0.03,
+          "note": "deep OTM put"
+        },
+        {
+          "strike": 645,
+          "type": "put",
+          "bid": 0.02,
+          "ask": 0.08,
+          "mid": 0.05,
+          "iv_est": 0.32,
+          "delta_est": -0.08,
+          "note": "OTM put"
+        },
+        {
+          "strike": 650,
+          "type": "put",
+          "bid": 0.1,
+          "ask": 0.3,
+          "mid": 0.2,
+          "iv_est": 0.28,
+          "delta_est": -0.18,
+          "note": "slightly OTM put"
+        },
+        {
+          "strike": 655,
+          "type": "put",
+          "bid": 1.0,
+          "ask": 1.6,
+          "mid": 1.3,
+          "iv_est": 0.26,
+          "delta_est": -0.45,
+          "note": "ATM put"
+        },
+        {
+          "strike": 660,
+          "type": "put",
+          "bid": 5.0,
+          "ask": 5.8,
+          "mid": 5.4,
+          "iv_est": 0.25,
+          "delta_est": -0.75,
+          "note": "ITM put"
+        },
+        {
+          "strike": 665,
+          "type": "put",
+          "bid": 9.5,
+          "ask": 10.5,
+          "mid": 10.0,
+          "iv_est": 0.24,
+          "delta_est": -0.88,
+          "note": "deep ITM put"
+        }
+      ]
+    },
+    "QQQ": {
+      "underlying_price": 584.31,
+      "atm_strike": 585,
+      "iv_regime": "HIGH",
+      "note": "Synthetic estimates only"
+    },
+    "IWM": {
+      "underlying_price": 250.03,
+      "atm_strike": 250,
+      "iv_regime": "HIGH",
+      "note": "Synthetic estimates only"
+    }
+  }
+}
