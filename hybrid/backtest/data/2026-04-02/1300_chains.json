@@ -1,0 +1,53 @@
+{
+  "timestamp": "2026-04-02T13:00:00-04:00",
+  "snapshot_hour": "13:00 ET",
+  "source": "web_search_estimated",
+  "note": "Options chain data estimated from web search results. API proxy blocks direct Alpaca/CBOE access. IV, Greeks, and premiums are interpolated from available market data (VIX 25.57, SPY $654.53).",
+  "expiry": "2026-04-02",
+  "chains": {
+    "SPY": {
+      "underlying_price": 654.53,
+      "atm_iv_est": 0.265,
+      "iv_regime": "HIGH",
+      "put_call_oi_ratio": 1.98,
+      "estimated_strikes": [
+        {"strike": 640, "type": "put", "delta_est": -0.12, "bid_est": 0.08, "ask_est": 0.12, "iv_est": 0.32, "notes": "Deep OTM put, near today's gap-down low"},
+        {"strike": 645, "type": "put", "delta_est": -0.18, "bid_est": 0.22, "ask_est": 0.30, "iv_est": 0.30, "notes": "OTM put"},
+        {"strike": 648, "type": "put", "delta_est": -0.24, "bid_est": 0.45, "ask_est": 0.55, "iv_est": 0.28, "notes": "Near-the-money put"},
+        {"strike": 650, "type": "put", "delta_est": -0.30, "bid_est": 0.75, "ask_est": 0.88, "iv_est": 0.27, "notes": "ATM-ish put, key psychological level"},
+        {"strike": 653, "type": "put", "delta_est": -0.40, "bid_est": 1.30, "ask_est": 1.45, "iv_est": 0.26, "notes": "Slightly ITM put"},
+        {"strike": 655, "type": "call", "delta_est": 0.48, "bid_est": 1.50, "ask_est": 1.65, "iv_est": 0.25, "notes": "Near ATM call"},
+        {"strike": 657, "type": "call", "delta_est": 0.38, "bid_est": 0.85, "ask_est": 0.98, "iv_est": 0.25, "notes": "Slightly OTM call, near day's high"},
+        {"strike": 660, "type": "call", "delta_est": 0.28, "bid_est": 0.40, "ask_est": 0.52, "iv_est": 0.26, "notes": "OTM call, gamma flip zone upper bound"},
+        {"strike": 665, "type": "call", "delta_est": 0.15, "bid_est": 0.12, "ask_est": 0.18, "iv_est": 0.27, "notes": "Far OTM call"},
+        {"strike": 670, "type": "call", "delta_est": 0.08, "bid_est": 0.04, "ask_est": 0.08, "iv_est": 0.29, "notes": "Deep OTM call"}
+      ]
+    },
+    "QQQ": {
+      "underlying_price": 584.31,
+      "atm_iv_est": 0.28,
+      "iv_regime": "HIGH",
+      "estimated_strikes": [
+        {"strike": 575, "type": "put", "delta_est": -0.18, "bid_est": 0.18, "ask_est": 0.26, "iv_est": 0.32},
+        {"strike": 580, "type": "put", "delta_est": -0.28, "bid_est": 0.55, "ask_est": 0.68, "iv_est": 0.30},
+        {"strike": 583, "type": "put", "delta_est": -0.38, "bid_est": 1.10, "ask_est": 1.25, "iv_est": 0.29},
+        {"strike": 585, "type": "call", "delta_est": 0.45, "bid_est": 1.40, "ask_est": 1.58, "iv_est": 0.28},
+        {"strike": 588, "type": "call", "delta_est": 0.32, "bid_est": 0.60, "ask_est": 0.75, "iv_est": 0.28},
+        {"strike": 590, "type": "call", "delta_est": 0.22, "bid_est": 0.25, "ask_est": 0.35, "iv_est": 0.29}
+      ]
+    },
+    "IWM": {
+      "underlying_price": 249.56,
+      "atm_iv_est": 0.30,
+      "iv_regime": "HIGH",
+      "estimated_strikes": [
+        {"strike": 245, "type": "put", "delta_est": -0.15, "bid_est": 0.10, "ask_est": 0.16, "iv_est": 0.35},
+        {"strike": 247, "type": "put", "delta_est": -0.22, "bid_est": 0.28, "ask_est": 0.38, "iv_est": 0.33},
+        {"strike": 249, "type": "put", "delta_est": -0.35, "bid_est": 0.70, "ask_est": 0.85, "iv_est": 0.31},
+        {"strike": 250, "type": "call", "delta_est": 0.45, "bid_est": 0.90, "ask_est": 1.05, "iv_est": 0.30},
+        {"strike": 252, "type": "call", "delta_est": 0.30, "bid_est": 0.35, "ask_est": 0.48, "iv_est": 0.31},
+        {"strike": 255, "type": "call", "delta_est": 0.15, "bid_est": 0.08, "ask_est": 0.14, "iv_est": 0.33}
+      ]
+    }
+  }
+}

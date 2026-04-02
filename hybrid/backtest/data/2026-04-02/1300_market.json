@@ -1,0 +1,81 @@
+{
+  "timestamp": "2026-04-02T13:00:00-04:00",
+  "snapshot_hour": "13:00 ET",
+  "source": "web_search_aggregated",
+  "underlyings": {
+    "SPY": {
+      "price": 654.53,
+      "prev_close": 650.34,
+      "open": 638.94,
+      "day_high": 657.92,
+      "day_low": 637.98,
+      "change_pct": 0.64,
+      "volume": 33110000,
+      "avg_volume": 114660000,
+      "notes": "V-reversal continuation but fading from midday highs of $657.92. Pulled back ~$3 from 12:00 report level of $656. Volume 29% of average — low liquidity afternoon ahead of Good Friday. Consolidating at gamma flip zone $654-656."
+    },
+    "QQQ": {
+      "price": 584.31,
+      "prev_close": 577.18,
+      "open": 581.87,
+      "day_high": 587.74,
+      "day_low": 580.42,
+      "change_pct": 1.24,
+      "notes": "Holding morning recovery gains. Outperforming SPY on percentage basis. Day range narrowing — consolidation mode. Tech stabilizing after early TSLA drag."
+    },
+    "IWM": {
+      "price": 249.56,
+      "prev_close": 248.00,
+      "open": 245.59,
+      "day_high": 252.44,
+      "day_low": 245.59,
+      "change_pct": 0.63,
+      "notes": "Faded from morning high of $252.44. Pre-market showed $245.59 (-1.6%). Recovery less convincing than SPY/QQQ — small caps giving back relative outperformance from 12:00 snapshot."
+    }
+  },
+  "vix": {
+    "level": 25.57,
+    "prev_close": 24.54,
+    "change_pct": 4.20,
+    "regime": "HIGH",
+    "intraday_high": 26.86,
+    "intraday_low": 23.50,
+    "notes": "VIX rising into afternoon — up 4.2% vs earlier decline. Reversal from morning vol crush. Suggests uncertainty returning ahead of weekend/Good Friday closure. VIX at 25.57 is the HIGH regime (20-30). Midday report from StockMarketWatch confirmed VIX climbed 2.06% to 25.77."
+  },
+  "fear_greed": {
+    "value": 16,
+    "label": "Extreme Fear",
+    "prev_value": 14,
+    "notes": "Unchanged from 12:00 snapshot. Extreme Fear persists — 5th+ consecutive day in single-digit/teens territory. Powerful contrarian signal but muted by active Iran war and Hormuz blockade deadline April 6."
+  },
+  "oil": {
+    "wti": 105.57,
+    "brent": 108.90,
+    "wti_change_pct": 5.94,
+    "brent_change_pct": 7.63,
+    "wti_day_high": 111.60,
+    "wti_day_low": 97.50,
+    "notes": "WTI pulled back from $111.60 highs to $105.57. Brent at $108.90. Oil intraday range $97.50-$111.60 is extraordinary ($14 swing). Settling into mid-$105 range. Still up 6% on day. April 6 Hormuz blockade deadline and OPEC April 5 meeting are critical."
+  },
+  "treasury": {
+    "us10y": 4.30,
+    "notes": "10-year yield edged down to 4.30% from intraday high of 4.38%. Flight to safety keeping yields suppressed despite inflationary oil surge."
+  },
+  "sectors": {
+    "leaders": "Energy (+5-8%)",
+    "laggards": "Consumer Discretionary (Sherwin-Williams -3.81%, Nike -2.98%, Home Depot -2.66%), Tech (TSLA -4%, NVDA -2%, META -2%)",
+    "gold": {"price": 4688.10, "change_pct": -2.60, "notes": "Gold plunging -2.6% as investors liquidate safe havens to chase energy. GLD down -2.22%."},
+    "notes": "Clear energy vs everything rotation. Only energy sector green. Consumer discretionary worst performer."
+  },
+  "options_flow": {
+    "spx_put_call_volume": 1.32,
+    "spy_oi_put_call": 1.98,
+    "notes": "Extreme put buying — most bearish options positioning in weeks. SPY OI P/C ratio near 2.0. Historically contrarian bullish when this extreme, but war catalyst makes contrarian unreliable."
+  },
+  "geopolitical": {
+    "headline": "Trump vows to 'hit Iran hard' for 2-3 more weeks, no plan to reopen Hormuz",
+    "catalyst": "Iran/Oman working on Hormuz shipping protocol — drove morning V-reversal",
+    "key_dates": "April 5 OPEC meeting, April 6 Hormuz blockade deadline",
+    "risk": "Binary outcome: diplomacy succeeds (oil crashes, equities rally) or fails (oil $120+, equities capitulate)"
+  }
+}
