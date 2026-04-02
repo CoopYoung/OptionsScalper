@@ -1,0 +1,95 @@
+{
+  "timestamp": "2026-04-02T12:00:00-04:00",
+  "snapshot_hour": "12:00 ET",
+  "source": "web_search_aggregated",
+  "underlyings": {
+    "SPY": {
+      "price": 656.00,
+      "prev_close": 650.34,
+      "open": 638.94,
+      "day_high": 658.52,
+      "day_low": 637.98,
+      "change_pct": 0.87,
+      "52w_high": 697.84,
+      "52w_low": 481.80,
+      "notes": "Massive V-reversal from gap-down lows. Opened near $639, ripped to $658+. Iran/Oman Hormuz diplomacy drove the reversal. Now consolidating near $656."
+    },
+    "QQQ": {
+      "price": 583.52,
+      "prev_close": 577.29,
+      "open": 571.66,
+      "day_high": 585.12,
+      "day_low": 571.66,
+      "change_pct": 1.08,
+      "52w_high": 637.01,
+      "52w_low": 402.39,
+      "notes": "Recovered from -2.2% gap-down. Tech bouncing with broad market. TSLA still weak but NVDA, META recovering."
+    },
+    "IWM": {
+      "price": 251.44,
+      "prev_close": 248.00,
+      "open": 249.11,
+      "day_high": 252.44,
+      "day_low": 249.11,
+      "change_pct": 1.39,
+      "52w_high": 271.60,
+      "52w_low": 171.73,
+      "notes": "Outperforming large caps today +1.4%. Domestic-oriented value bid continuing. Russell 2000 up +0.88% vs S&P -0.21% divergence."
+    }
+  },
+  "vix": {
+    "level": 24.55,
+    "prev_close": 25.25,
+    "open": 24.30,
+    "day_high": 25.35,
+    "day_low": 23.50,
+    "change_pct": -2.77,
+    "regime": "HIGH",
+    "notes": "Declining from morning spike. Down -3% from yesterday. March average was 25.56. Still elevated but risk premium fading on diplomacy hopes."
+  },
+  "fear_greed": {
+    "value": 16,
+    "label": "Extreme Fear",
+    "prev_value": 14,
+    "notes": "Slightly higher than yesterday (14). Six of seven sub-indicators in extreme fear. Lowest levels since Nov 2025. Historically powerful contrarian bullish signal but muted by active war catalyst."
+  },
+  "oil": {
+    "wti": 105.50,
+    "brent": 112.57,
+    "change_pct": 10.0,
+    "day_high": 113.00,
+    "day_low": 97.50,
+    "notes": "Massive $14 intraday range. Spiked on Trump rhetoric, pulled back on Iran/Oman diplomacy. April 6 Hormuz deadline is key binary event."
+  },
+  "treasury_10y": {
+    "yield": 4.37,
+    "change_bps": 6,
+    "notes": "Rising on prolonged energy crisis inflation fears. March saw +37bps."
+  },
+  "fed": {
+    "rate": "3.50-3.75%",
+    "next_meeting_outlook": "Hold",
+    "cuts_priced_2026": 0,
+    "notes": "Zero rate cuts priced for rest of 2026. Oil/inflation fears killed cut expectations. Near 100% probability of continued pause."
+  },
+  "options_flow": {
+    "spx_put_call_ratio": 1.32,
+    "spy_oi_put_call_ratio": 1.98,
+    "notes": "Extreme put buying. Most bearish options positioning in weeks. Contrarian signal but unreliable with active war catalyst.",
+    "unusual_activity": [
+      {"symbol": "AZN", "type": "call", "strike": 220, "expiry": "2026-04-17", "volume": 5761, "oi": 120, "ratio": "100:1 call/put"},
+      {"symbol": "FTDR", "type": "call", "strike": 60, "expiry": "2026-04-17", "volume": 2691, "oi": 8, "ratio": "300x daily avg"},
+      {"symbol": "HST", "type": "put", "strike": 18, "expiry": "2026-05-15", "volume": 3685, "oi": 28, "ratio": "100:1 put/call"}
+    ]
+  },
+  "market_breadth": {
+    "new_52w_highs": 51,
+    "new_52w_lows": 72,
+    "notes": "More new lows than highs despite midday recovery. Internal weakness persists."
+  },
+  "sector_performance": {
+    "energy": "+5-8%",
+    "technology": "-2%",
+    "notes": "Oil surge lifting energy. Tech lagging. Growth-to-value rotation in progress."
+  }
+}

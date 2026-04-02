@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-04-02T12:00:00-04:00",
+  "snapshot_hour": "12:00 ET",
+  "source": "web_search_estimated",
+  "note": "Options chain data estimated from web search results. Alpaca API blocked by environment proxy. Estimates based on SPY ~$656, QQQ ~$583.52, IWM ~$251.44, VIX ~24.55, 0DTE expiry April 2 2026. Prices adjusted from 11:00 snapshot for V-reversal move higher.",
+  "spy": {
+    "underlying_price": 656.00,
+    "expiry": "2026-04-02",
+    "dte": 0,
+    "atm_iv_est": 0.265,
+    "expected_move_est": 8.00,
+    "expected_range": [648.00, 664.00],
+    "strikes_estimated": [
+      {"strike": 635, "type": "put", "bid_est": 0.02, "ask_est": 0.05, "delta_est": -0.02, "notes": "deep OTM put, near session low"},
+      {"strike": 638, "type": "put", "bid_est": 0.04, "ask_est": 0.08, "delta_est": -0.03, "notes": "far OTM put"},
+      {"strike": 640, "type": "put", "bid_est": 0.08, "ask_est": 0.14, "delta_est": -0.05, "notes": "OTM put"},
+      {"strike": 643, "type": "put", "bid_est": 0.15, "ask_est": 0.25, "delta_est": -0.08, "notes": "OTM put"},
+      {"strike": 645, "type": "put", "bid_est": 0.25, "ask_est": 0.40, "delta_est": -0.12, "notes": "OTM put"},
+      {"strike": 648, "type": "put", "bid_est": 0.55, "ask_est": 0.75, "delta_est": -0.20, "notes": "OTM put"},
+      {"strike": 650, "type": "put", "bid_est": 0.85, "ask_est": 1.10, "delta_est": -0.27, "notes": "target delta put"},
+      {"strike": 652, "type": "put", "bid_est": 1.30, "ask_est": 1.60, "delta_est": -0.34, "notes": "near ATM put"},
+      {"strike": 654, "type": "put", "bid_est": 1.85, "ask_est": 2.15, "delta_est": -0.42, "notes": "near ATM put"},
+      {"strike": 656, "type": "call", "bid_est": 2.10, "ask_est": 2.45, "delta_est": 0.50, "notes": "ATM call"},
+      {"strike": 656, "type": "put", "bid_est": 2.40, "ask_est": 2.75, "delta_est": -0.50, "notes": "ATM put"},
+      {"strike": 658, "type": "call", "bid_est": 1.50, "ask_est": 1.80, "delta_est": 0.40, "notes": "slightly OTM call"},
+      {"strike": 660, "type": "call", "bid_est": 0.95, "ask_est": 1.25, "delta_est": 0.30, "notes": "target delta call, gamma flip zone"},
+      {"strike": 662, "type": "call", "bid_est": 0.55, "ask_est": 0.80, "delta_est": 0.22, "notes": "OTM call"},
+      {"strike": 665, "type": "call", "bid_est": 0.25, "ask_est": 0.40, "delta_est": 0.13, "notes": "OTM call"},
+      {"strike": 668, "type": "call", "bid_est": 0.10, "ask_est": 0.20, "delta_est": 0.07, "notes": "far OTM call"},
+      {"strike": 670, "type": "call", "bid_est": 0.05, "ask_est": 0.12, "delta_est": 0.04, "notes": "deep OTM call"}
+    ]
+  },
+  "qqq": {
+    "underlying_price": 583.52,
+    "expiry": "2026-04-02",
+    "dte": 0,
+    "atm_iv_est": 0.30,
+    "expected_move_est": 8.50,
+    "strikes_estimated": [
+      {"strike": 575, "type": "put", "bid_est": 0.30, "ask_est": 0.50, "delta_est": -0.15, "notes": "OTM put"},
+      {"strike": 578, "type": "put", "bid_est": 0.60, "ask_est": 0.85, "delta_est": -0.22, "notes": "OTM put"},
+      {"strike": 580, "type": "put", "bid_est": 0.95, "ask_est": 1.25, "delta_est": -0.30, "notes": "target delta put"},
+      {"strike": 583, "type": "call", "bid_est": 2.00, "ask_est": 2.40, "delta_est": 0.50, "notes": "ATM call"},
+      {"strike": 585, "type": "call", "bid_est": 1.35, "ask_est": 1.65, "delta_est": 0.40, "notes": "slightly OTM call"},
+      {"strike": 588, "type": "call", "bid_est": 0.70, "ask_est": 1.00, "delta_est": 0.28, "notes": "target delta call"},
+      {"strike": 590, "type": "call", "bid_est": 0.40, "ask_est": 0.60, "delta_est": 0.20, "notes": "OTM call"}
+    ],
+    "notes": "Tech recovering but still lagging. Higher IV than SPY due to sector-specific risks."
+  },
+  "iwm": {
+    "underlying_price": 251.44,
+    "expiry": "2026-04-02",
+    "dte": 0,
+    "atm_iv_est": 0.33,
+    "expected_move_est": 4.20,
+    "strikes_estimated": [
+      {"strike": 245, "type": "put", "bid_est": 0.08, "ask_est": 0.15, "delta_est": -0.08, "notes": "OTM put"},
+      {"strike": 247, "type": "put", "bid_est": 0.20, "ask_est": 0.35, "delta_est": -0.15, "notes": "OTM put"},
+      {"strike": 249, "type": "put", "bid_est": 0.55, "ask_est": 0.75, "delta_est": -0.25, "notes": "OTM put"},
+      {"strike": 251, "type": "call", "bid_est": 1.50, "ask_est": 1.85, "delta_est": 0.50, "notes": "ATM call"},
+      {"strike": 253, "type": "call", "bid_est": 0.75, "ask_est": 1.05, "delta_est": 0.35, "notes": "slightly OTM call"},
+      {"strike": 255, "type": "call", "bid_est": 0.35, "ask_est": 0.55, "delta_est": 0.22, "notes": "OTM call"}
+    ],
+    "notes": "Outperforming large caps. Domestic-oriented value rotation. Relatively higher IV."
+  }
+}
