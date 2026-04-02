@@ -1,0 +1,33 @@
+{
+  "timestamp": "2026-04-02T10:00:00-04:00",
+  "source": "unavailable",
+  "note": "Options chain data unavailable — Alpaca API blocked by environment proxy. No options chain snapshots could be captured this session.",
+  "expiry": "2026-04-02",
+  "underlyings": ["SPY", "QQQ", "IWM"],
+  "chains": {},
+  "estimated_context": {
+    "SPY": {
+      "spot_price_est": 654.0,
+      "vix": 24.58,
+      "atm_strike_range": "650-660",
+      "0dte_expiry": "2026-04-02",
+      "note": "Thursday — 0DTE available for SPY (MWF), QQQ (MWF), IWM (limited). SPY has daily expirations.",
+      "estimated_atm_iv": 0.30,
+      "estimated_30delta_call_strike": "662-665",
+      "estimated_30delta_put_strike": "644-646",
+      "iv_environment": "Elevated due to oil shock + geopolitical risk. ATM IV likely 30%+ for 0DTE."
+    },
+    "QQQ": {
+      "spot_price_est": 576.0,
+      "atm_strike_range": "573-580",
+      "estimated_30delta_call_strike": "584-586",
+      "estimated_30delta_put_strike": "568-570"
+    },
+    "IWM": {
+      "spot_price_est": 247.0,
+      "atm_strike_range": "245-250",
+      "estimated_30delta_call_strike": "252-254",
+      "estimated_30delta_put_strike": "242-244"
+    }
+  }
+}
