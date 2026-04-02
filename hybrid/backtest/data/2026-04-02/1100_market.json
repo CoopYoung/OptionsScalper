@@ -1,0 +1,103 @@
+{
+  "timestamp": "2026-04-02T11:00:00-04:00",
+  "snapshot_hour": "11:00 ET",
+  "source": "web_search_aggregated",
+  "underlyings": {
+    "SPY": {
+      "price": 649.50,
+      "prev_close": 656.22,
+      "open": 638.94,
+      "day_high": 651.54,
+      "day_low": 637.98,
+      "change_pct": -1.02,
+      "52w_high": 697.84,
+      "52w_low": 481.80,
+      "notes": "Gap-down open on Trump Iran escalation, V-reversal attempt on Iran/Oman Hormuz diplomacy. Dow was down 600+ pts at lows, clawed back to near flat."
+    },
+    "QQQ": {
+      "price": 584.31,
+      "prev_close": 577.18,
+      "open": 580.42,
+      "day_high": 587.74,
+      "day_low": 580.42,
+      "change_pct": -1.23,
+      "52w_high": 637.01,
+      "52w_low": 402.39,
+      "notes": "Tech leading down: NVDA, AMZN, META -2%+, TSLA -4% on terrible sales quarter."
+    },
+    "IWM": {
+      "price": 247.00,
+      "prev_close": 251.43,
+      "open": 245.59,
+      "day_high": 248.50,
+      "day_low": 244.80,
+      "change_pct": -1.76,
+      "52w_high": 271.60,
+      "52w_low": 171.73,
+      "notes": "Giving back yesterday's +3.4% rally. Small-cap rotation reversing."
+    }
+  },
+  "vix": {
+    "level": 25.50,
+    "prev_close": 25.25,
+    "open": 24.30,
+    "day_high": 26.86,
+    "day_low": 23.50,
+    "change_pct": 1.0,
+    "regime": "HIGH",
+    "notes": "Opened lower (vol crush continuation from yesterday), then spiked 6% to 26.86 on Trump Iran rhetoric, now settling mid-range. March range: 20.28-35.30."
+  },
+  "fear_greed": {
+    "value": 14,
+    "label": "Extreme Fear",
+    "prev_value": 15,
+    "prev_week": 26,
+    "prev_month": 51,
+    "notes": "4th+ consecutive day in extreme fear. Hit single digits (8) on March 31. Historically powerful contrarian bullish signal but muted during active geopolitical conflict."
+  },
+  "oil": {
+    "wti": 105.57,
+    "wti_prev_close": 100.12,
+    "wti_change_pct": 5.4,
+    "wti_day_range": [97.50, 111.48],
+    "brent_est": 112.00,
+    "notes": "Surging on Hormuz blockade deadline April 6. Intraday range extremely wide ($97.50-$111.48). OPEC meeting April 5."
+  },
+  "put_call_ratios": {
+    "spx_volume_pc": 1.32,
+    "spy_oi_pc": 1.98,
+    "spy_volume_pc_30d": 0.99,
+    "notes": "Heavily bearish options positioning. OI P/C near 2.0 indicates extreme put buying."
+  },
+  "gex_assessment": {
+    "regime": "negative_gamma",
+    "gamma_flip_zone": "656-660",
+    "key_support": [638, 640, 648, 650],
+    "key_resistance": [656, 660, 665],
+    "notes": "SPY below gamma flip zone. Negative gamma amplifies moves both directions. Yesterday's gamma flip at 656-660 is now resistance. Dealer positioning whipsawed 3 consecutive days."
+  },
+  "iv_regime": {
+    "vix_percentile_est": 78,
+    "iv_vs_rv_spread": "elevated",
+    "notes": "VIX at 25.5 with oil at $105+ is unusually low given energy shock magnitude. IV should be 28-32+. Market may be complacent or data lagging."
+  },
+  "macro": {
+    "events_today": ["Initial Jobless Claims"],
+    "events_tomorrow": ["March Non-Farm Payrolls (key Fed data)"],
+    "events_this_week": ["Good Friday market closure April 3", "OPEC meeting April 5", "Hormuz blockade deadline April 6"],
+    "notes": "Shortened week. NFP tomorrow is critical for Fed policy. Any further Trump Iran statements could whipsaw market."
+  },
+  "sector_performance": {
+    "energy": "+5-8% (oil surge)",
+    "tech": "-1.5 to -2.5% (TSLA -4%, NVDA/AMZN/META -2%+)",
+    "financials": "-0.5 to -1%",
+    "consumer_discretionary": "-1 to -2%",
+    "defensives": "+0.5 to +1% (flight to safety)",
+    "notes": "Sharp energy/tech divergence. Oil-sensitive sectors surging while growth/tech selling."
+  },
+  "intraday_pattern": {
+    "description": "Gap-down → V-reversal attempt",
+    "weekly_pattern": "5 weeks of Iran war: Monday strong, mid-week flat, Thursday/Friday collapse. Today is Thursday — following the pattern so far with gap-down, but attempting reversal on Oman diplomacy.",
+    "key_catalyst": "Iran/Oman Strait of Hormuz shipping protocol negotiations"
+  }
+}

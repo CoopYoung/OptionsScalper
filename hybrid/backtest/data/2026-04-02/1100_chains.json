@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-04-02T11:00:00-04:00",
+  "snapshot_hour": "11:00 ET",
+  "source": "web_search_estimated",
+  "note": "Options chain data estimated from web search results. Alpaca API blocked by environment proxy. Actual chain data unavailable. Estimates based on SPY price ~$649.50, VIX ~25.5, 0DTE expiry April 2 2026.",
+  "spy": {
+    "underlying_price": 649.50,
+    "expiry": "2026-04-02",
+    "dte": 0,
+    "atm_iv_est": 0.28,
+    "expected_move_est": 8.50,
+    "expected_range": [641.00, 658.00],
+    "strikes_estimated": [
+      {"strike": 630, "type": "put", "bid_est": 0.05, "ask_est": 0.08, "delta_est": -0.03, "notes": "deep OTM put"},
+      {"strike": 635, "type": "put", "bid_est": 0.12, "ask_est": 0.18, "delta_est": -0.06, "notes": "far OTM put"},
+      {"strike": 638, "type": "put", "bid_est": 0.25, "ask_est": 0.35, "delta_est": -0.10, "notes": "OTM put, near today's low"},
+      {"strike": 640, "type": "put", "bid_est": 0.40, "ask_est": 0.55, "delta_est": -0.14, "notes": "OTM put"},
+      {"strike": 643, "type": "put", "bid_est": 0.75, "ask_est": 0.95, "delta_est": -0.22, "notes": "OTM put"},
+      {"strike": 645, "type": "put", "bid_est": 1.10, "ask_est": 1.35, "delta_est": -0.28, "notes": "target delta put"},
+      {"strike": 647, "type": "put", "bid_est": 1.60, "ask_est": 1.90, "delta_est": -0.35, "notes": "near ATM put"},
+      {"strike": 649, "type": "put", "bid_est": 2.20, "ask_est": 2.55, "delta_est": -0.43, "notes": "ATM put"},
+      {"strike": 650, "type": "call", "bid_est": 2.50, "ask_est": 2.85, "delta_est": 0.48, "notes": "near ATM call"},
+      {"strike": 652, "type": "call", "bid_est": 1.80, "ask_est": 2.15, "delta_est": 0.40, "notes": "slightly OTM call"},
+      {"strike": 655, "type": "call", "bid_est": 1.10, "ask_est": 1.40, "delta_est": 0.30, "notes": "target delta call"},
+      {"strike": 658, "type": "call", "bid_est": 0.65, "ask_est": 0.85, "delta_est": 0.22, "notes": "OTM call"},
+      {"strike": 660, "type": "call", "bid_est": 0.40, "ask_est": 0.58, "delta_est": 0.16, "notes": "OTM call, gamma flip zone"},
+      {"strike": 665, "type": "call", "bid_est": 0.15, "ask_est": 0.25, "delta_est": 0.08, "notes": "far OTM call"},
+      {"strike": 670, "type": "call", "bid_est": 0.05, "ask_est": 0.10, "delta_est": 0.03, "notes": "deep OTM call"}
+    ]
+  },
+  "qqq": {
+    "underlying_price": 584.31,
+    "expiry": "2026-04-02",
+    "dte": 0,
+    "atm_iv_est": 0.32,
+    "expected_move_est": 9.00,
+    "notes": "Tech-heavy, higher IV than SPY due to sector weakness. TSLA -4%, mega-cap tech -2%."
+  },
+  "iwm": {
+    "underlying_price": 247.00,
+    "expiry": "2026-04-02",
+    "dte": 0,
+    "atm_iv_est": 0.35,
+    "expected_move_est": 4.50,
+    "notes": "Small-cap reversal. Giving back yesterday's +3.4%. Higher IV relative to price."
+  }
+}
