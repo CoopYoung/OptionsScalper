@@ -1,0 +1,88 @@
+{
+  "timestamp": "2026-04-02T14:17:00-04:00",
+  "source": "web_search_aggregate",
+  "note": "API proxy blocked; data from web search aggregation",
+  "underlyings": {
+    "SPY": {
+      "price": 654.53,
+      "prev_close": 650.34,
+      "change_pct": 0.64,
+      "day_high": 657.92,
+      "day_low": 644.17,
+      "intraday_range": 13.75,
+      "v_reversal_magnitude": 13.75
+    },
+    "QQQ": {
+      "price": 584.31,
+      "prev_close": 577.18,
+      "change_pct": 1.24,
+      "day_high": 587.74,
+      "day_low": 580.42,
+      "intraday_range": 7.32
+    },
+    "IWM": {
+      "price": 250.03,
+      "prev_close": 247.62,
+      "change_pct": 0.97,
+      "day_high": 252.37,
+      "day_low": 243.82,
+      "intraday_range": 8.55
+    }
+  },
+  "volatility": {
+    "VIX": {
+      "level": 25.77,
+      "change_pct": 2.06,
+      "regime": "HIGH",
+      "day_high": 26.86,
+      "day_low": 23.50,
+      "iv_percentile_est": 78
+    }
+  },
+  "commodities": {
+    "WTI_crude": {
+      "price": 105.15,
+      "day_high": 105.65,
+      "day_low": 97.56,
+      "intraday_range": 8.09,
+      "change_pct": 5.5
+    }
+  },
+  "sentiment": {
+    "fear_greed_index": 16,
+    "fear_greed_label": "Extreme Fear",
+    "spx_put_call_ratio": 1.32,
+    "spy_oi_put_call_ratio": 1.98
+  },
+  "indices": {
+    "DJIA": {
+      "price": 46417.81,
+      "change_pct": -0.32
+    },
+    "SP500": {
+      "price": 6581.31,
+      "change_pct": 0.09
+    }
+  },
+  "sector_leaders": ["energy", "utilities", "real_estate"],
+  "sector_laggards": ["consumer_discretionary", "airlines", "tech"],
+  "notable_movers": {
+    "TSLA": -4.0,
+    "NVDA": -2.0,
+    "AMZN": -2.0,
+    "META": -2.0,
+    "CVX": 2.92,
+    "JNJ": 0.96,
+    "WMT": 0.69,
+    "SHW": -3.81,
+    "NKE": -2.98,
+    "HD": -2.66
+  },
+  "geopolitical": {
+    "catalyst": "Trump escalation rhetoric on Iran, then Iran/Oman Hormuz diplomacy reversal",
+    "hormuz_deadline": "2026-04-06",
+    "opec_meeting": "2026-04-05",
+    "good_friday_closure": true,
+    "nfp_friday": "2026-04-03"
+  }
+}

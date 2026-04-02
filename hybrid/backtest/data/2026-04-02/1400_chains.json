@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-04-02T14:17:00-04:00",
+  "source": "web_search_estimate",
+  "note": "API proxy blocked; chain data estimated from market context. No live chain available.",
+  "expiry": "2026-04-02",
+  "underlying_prices": {
+    "SPY": 654.53,
+    "QQQ": 584.31,
+    "IWM": 250.03
+  },
+  "vix_level": 25.77,
+  "estimated_0dte_iv": {
+    "SPY": {
+      "atm_iv_pct": 28.0,
+      "put_skew_premium_pct": 15.0,
+      "note": "VIX 25.77 implies elevated 0DTE IV; puts more expensive due to 1.98 P/C OI ratio"
+    },
+    "QQQ": {
+      "atm_iv_pct": 30.0,
+      "note": "Tech volatility elevated due to TSLA, mega-cap selloff"
+    },
+    "IWM": {
+      "atm_iv_pct": 32.0,
+      "note": "Small-cap IV typically higher; wide intraday range $243-$252"
+    }
+  },
+  "key_strikes_context": {
+    "SPY": {
+      "atm_strike": 655,
+      "gamma_flip_zone": [656, 660],
+      "critical_support": [638, 640, 650],
+      "resistance": [658, 660, 665],
+      "todays_low": 644.17,
+      "todays_high": 657.92
+    },
+    "QQQ": {
+      "atm_strike": 585,
+      "day_range": [580.42, 587.74]
+    },
+    "IWM": {
+      "atm_strike": 250,
+      "day_range": [243.82, 252.37]
+    }
+  },
+  "theta_decay_estimate": {
+    "time_to_close_hours": 1.72,
+    "theta_decay_pct_complete": 75,
+    "note": "At 2:17 PM, 0DTE options have ~75% of daily theta already decayed. Only large gamma moves generate P&L from here."
+  }
+}
