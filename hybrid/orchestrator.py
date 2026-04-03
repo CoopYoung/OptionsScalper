@@ -89,14 +89,58 @@ def _save_peaks(peaks: dict) -> None:
     _PEAKS_FILE.write_text(json.dumps({"date": today, "peaks": peaks}))
 
 
+# ── VIX-Adaptive Exit Thresholds ──────────────────────────
+
+def _get_vix_exit_params() -> dict:
+    """Return exit thresholds adapted to last known VIX regime.
+
+    Reads last_vix from daily state (set during market context gathering).
+    Falls back to static config values if VIX unknown.
+    """
+    state = get_daily_state()
+    vix = state.get("last_vix", 0)
+
+    if vix <= 0:
+        # No VIX data — use static config defaults
+        return {
+            "profit_target": config.PROFIT_TARGET_PCT,
+            "stop_loss": config.STOP_LOSS_PCT,
+            "trailing_activate": config.TRAILING_STOP_ACTIVATE_PCT,
+            "trailing_stop": config.TRAILING_STOP_PCT,
+        }
+
+    if vix < 15:
+        return {"profit_target": 40.0, "stop_loss": 25.0,
+                "trailing_activate": 25.0, "trailing_stop": 12.0}
+    elif vix < 20:
+        return {"profit_target": 50.0, "stop_loss": 30.0,
+                "trailing_activate": 30.0, "trailing_stop": 15.0}
+    elif vix < 30:
+        return {"profit_target": 60.0, "stop_loss": 40.0,
+                "trailing_activate": 35.0, "trailing_stop": 18.0}
+    else:
+        return {"profit_target": 70.0, "stop_loss": 50.0,
+                "trailing_activate": 40.0, "trailing_stop": 22.0}
+
+
 # ── Exit Management (deterministic, no LLM) ────────────────
 
 def _manage_exits(broker: Broker, positions: list[dict],
                   dry_run: bool = False) -> list[dict]:
-    """Check all positions for mechanical exit conditions."""
+    """Check all positions for mechanical exit conditions.
+
+    Uses VIX-adaptive thresholds when VIX data is available (stored in
+    daily state by the market context gathering phase of a prior cycle).
+    Falls back to static config values otherwise.
+    """
     exits = []
     peaks = _load_peaks()
     now_et = datetime.now(ET)
+    vix_params = _get_vix_exit_params()
+    profit_target = vix_params["profit_target"]
+    stop_loss = vix_params["stop_loss"]
+    trailing_activate = vix_params["trailing_activate"]
+    trailing_stop = vix_params["trailing_stop"]
 
     for pos in positions:
         if pos.get("asset_class") != "us_option":
@@ -120,18 +164,18 @@ def _manage_exits(broker: Broker, positions: list[dict],
 
         exit_reason = None
 
-        # Profit target
-        if pnl_pct >= config.PROFIT_TARGET_PCT:
-            exit_reason = f"PROFIT_TARGET: +{pnl_pct:.1f}%"
+        # Profit target (VIX-adaptive)
+        if pnl_pct >= profit_target:
+            exit_reason = f"PROFIT_TARGET: +{pnl_pct:.1f}% (threshold {profit_target:.0f}%)"
 
-        # Stop loss
-        elif pnl_pct <= -config.STOP_LOSS_PCT:
-            exit_reason = f"STOP_LOSS: {pnl_pct:.1f}%"
+        # Stop loss (VIX-adaptive)
+        elif pnl_pct <= -stop_loss:
+            exit_reason = f"STOP_LOSS: {pnl_pct:.1f}% (threshold -{stop_loss:.0f}%)"
 
-        # Trailing stop (activate after TRAILING_STOP_ACTIVATE_PCT gain)
-        elif pnl_pct >= config.TRAILING_STOP_ACTIVATE_PCT and peak > entry:
+        # Trailing stop (VIX-adaptive activation and drawdown)
+        elif pnl_pct >= trailing_activate and peak > entry:
             drawdown_from_peak = (peak - current) / peak * 100
-            if drawdown_from_peak >= config.TRAILING_STOP_PCT:
+            if drawdown_from_peak >= trailing_stop:
                 exit_reason = (f"TRAILING_STOP: peak ${peak:.2f} → "
                                f"now ${current:.2f} ({drawdown_from_peak:.1f}% drawdown)")
 
@@ -330,9 +374,16 @@ def run_cycle(
     market_context = gather_market_context()
     logger.info("Market context gathered in %.1fs", time.time() - t0)
 
-    # VIX crisis gate
+    # VIX crisis gate + store VIX for adaptive exits
     vix_data = market_context.get("vix", {})
     vix_val = vix_data.get("vix", 0)
+    if isinstance(vix_val, (int, float)) and vix_val > 0:
+        # Persist VIX for VIX-adaptive exit thresholds in next cycle
+        state = get_daily_state()
+        state["last_vix"] = round(float(vix_val), 2)
+        from hybrid.risk.validator import _save_daily_state
+        _save_daily_state(state)
+        logger.info("Stored VIX %.2f for adaptive exits", vix_val)
     if isinstance(vix_val, (int, float)) and vix_val > 35:
         logger.info("VIX crisis (%.1f) — no trading", vix_val)
         result["decision"] = {"decision": "NO_TRADE", "reasoning": f"VIX crisis: {vix_val}"}

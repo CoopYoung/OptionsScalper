@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-04-03T11:00:00-04:00",
+  "market_status": "CLOSED_GOOD_FRIDAY",
+  "note": "Markets closed for Good Friday. Data from April 2 close. No intraday bars available.",
+  "underlyings": {
+    "SPY": {"price": 655.83, "change_pct": 0.09, "prev_close": 655.24},
+    "QQQ": {"price": 584.98, "change_pct": 0.11, "prev_close": 584.34},
+    "IWM": {"price": 251.29, "change_pct": 0.69, "prev_close": 249.57}
+  },
+  "indices": {
+    "SPX": {"close": 6582.69, "change_pct": 0.11},
+    "NDX": {"close": 21879.18, "change_pct": 0.18},
+    "VIX": {"close": 24.54, "regime": "HIGH"}
+  },
+  "weekly_performance": {
+    "SPY": 3.4,
+    "QQQ": 4.4,
+    "DIA": 3.0,
+    "IWM": 4.1,
+    "note": "First weekly gain since Iran war began late February"
+  },
+  "macro": {
+    "oil_wti": 111.54,
+    "oil_brent": 109.0,
+    "fear_greed": 14,
+    "fear_greed_label": "Extreme Fear",
+    "nfp_march": {
+      "headline": 60000,
+      "feb_revision": -133000,
+      "jan_revision": 160000,
+      "avg_workweek": 34.2,
+      "unemployment_rate": 4.4,
+      "wage_growth_mom": 0.3,
+      "wage_growth_yoy": 3.7,
+      "note": "Weak report. Feb revised sharply lower. 3-month average worst since 2020."
+    },
+    "iran_war": "ongoing_escalating",
+    "strait_of_hormuz": "constrained",
+    "gas_price_avg": 4.00,
+    "trump_speech_apr2": "Vowed to hit Iran hard, war may last weeks. Mixed signals on de-escalation timeline."
+  },
+  "gex_levels": {
+    "spy_gamma_flip": [654, 660],
+    "spy_negative_gamma_support": [640, 645],
+    "spy_positive_gamma_resistance": [660, 665],
+    "spy_capitulation": 630,
+    "note": "Estimated from dealer positioning analysis. SPY at 655.83 is right at gamma flip zone."
+  },
+  "iv_regime": {
+    "vix": 24.54,
+    "regime": "HIGH",
+    "note": "VIX seems low given oil $111 + active war. Expected 27-30. Either vol sellers aggressive or market pricing war resolution.",
+    "recommended_params": {
+      "profit_target_pct": 50,
+      "stop_loss_pct": 35,
+      "entry_start_et": "09:55"
+    }
+  },
+  "bars_5min": null,
+  "options_chains": null
+}
