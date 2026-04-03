@@ -188,5 +188,22 @@ def is_market_hours() -> bool:
     weekday = now_et.weekday()
     if weekday >= 5:  # Saturday/Sunday
         return False
+
+    # NYSE market holidays for 2026 — update this set annually
+    market_holidays_2026 = {
+        "2026-01-01",  # New Year's Day
+        "2026-01-19",  # MLK Day
+        "2026-02-16",  # Presidents' Day
+        "2026-04-03",  # Good Friday
+        "2026-05-25",  # Memorial Day
+        "2026-06-19",  # Juneteenth
+        "2026-07-03",  # Independence Day (observed)
+        "2026-09-07",  # Labor Day
+        "2026-11-26",  # Thanksgiving
+        "2026-12-25",  # Christmas
+    }
+    if now_et.strftime("%Y-%m-%d") in market_holidays_2026:
+        return False
+
     current_time = now_et.strftime("%H:%M")
     return "09:30" <= current_time <= "16:00"

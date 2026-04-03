@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-04-03T10:00:00-04:00",
+  "market_status": "CLOSED_GOOD_FRIDAY",
+  "note": "Markets closed for Good Friday. Data from April 2 close.",
+  "underlyings": {
+    "SPY": {"price": 655.83, "change_pct": 0.09, "prev_close": 655.24},
+    "QQQ": {"price": 584.98, "change_pct": 0.11, "prev_close": 584.34},
+    "IWM": {"price": 251.29, "change_pct": 0.69, "prev_close": 249.57}
+  },
+  "indices": {
+    "SPX": {"close": 6582.69, "change_pct": 0.11},
+    "NDX": {"close": 21879.18, "change_pct": 0.18},
+    "VIX": {"close": 24.54, "regime": "HIGH"}
+  },
+  "weekly_performance": {
+    "SPY": 3.4,
+    "QQQ": 4.4,
+    "DIA": 3.0,
+    "note": "First weekly gain since Iran war began"
+  },
+  "macro": {
+    "oil_wti": 111.54,
+    "fear_greed": 14,
+    "fear_greed_label": "Extreme Fear",
+    "nfp_march": {
+      "headline": 60000,
+      "feb_revision": -133000,
+      "jan_revision": 160000,
+      "avg_workweek": 34.2,
+      "note": "Weak. Feb revised sharply lower from -92K to -133K. Labor market deteriorating."
+    },
+    "iran_war": "ongoing",
+    "strait_of_hormuz": "constrained"
+  },
+  "bars_5min": null,
+  "options_chains": null
+}
