@@ -1,0 +1,6 @@
+{
+  "timestamp": "2026-04-03T13:00:00-04:00",
+  "market_status": "CLOSED_GOOD_FRIDAY",
+  "note": "No options chains available - market closed. No 0DTE expiry on Good Friday.",
+  "chains": {}
+}
