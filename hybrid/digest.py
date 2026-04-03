@@ -574,7 +574,8 @@ def gather_market_context() -> dict:
 
 
 def gather_underlying_analysis(broker: Broker, symbol: str,
-                                expiry: str | None) -> dict:
+                                expiry: str | None,
+                                vix_history_5d: list[float] | None = None) -> dict:
     """Gather price data + compute technicals for one underlying."""
     analysis: dict = {"symbol": symbol}
 
@@ -647,7 +648,7 @@ def gather_underlying_analysis(broker: Broker, symbol: str,
                 avg_atm_iv = sum(atm_ivs) / len(atm_ivs)
                 analysis["iv_percentile"] = compute_iv_percentile(
                     avg_atm_iv, [float(v) for v in
-                                  (analysis.get("quote", {}).get("vix_history", []) or [])]
+                                  (vix_history_5d or [])]
                 )
                 analysis["atm_iv"] = round(avg_atm_iv, 4)
 

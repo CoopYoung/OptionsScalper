@@ -358,7 +358,8 @@ def run_cycle(
     try:
         positions = broker.get_positions()
         option_positions = [p for p in positions if p.get("asset_class") == "us_option"]
-    except Exception:
+    except Exception as e:
+        logger.error("Position refresh failed: %s", e)
         option_positions = []
 
     if len(option_positions) >= config.MAX_CONCURRENT_POSITIONS:
@@ -398,7 +399,9 @@ def run_cycle(
         if not expiry:
             logger.info("%s: no 0DTE expiry today — skipping", symbol)
             continue
-        analyses[symbol] = gather_underlying_analysis(broker, symbol, expiry)
+        vix_hist = [float(v) for v in (vix_data.get("history_5d", []) or [])]
+        analyses[symbol] = gather_underlying_analysis(broker, symbol, expiry,
+                                                       vix_history_5d=vix_hist)
     logger.info("Analysis gathered for %d underlyings in %.1fs",
                 len(analyses), time.time() - t0)
 
@@ -481,6 +484,7 @@ def run_cycle(
         limit_price=limit_price,
         current_positions=option_positions,
         account=account,
+        confidence=confidence,
     )
 
     if not validation["approved"]:
