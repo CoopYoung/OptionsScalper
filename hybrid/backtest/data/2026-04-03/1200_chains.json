@@ -1,0 +1,6 @@
+{
+  "timestamp": "2026-04-03T12:00:00-04:00",
+  "market_status": "CLOSED_GOOD_FRIDAY",
+  "note": "No live chain data - market closed. Placeholder for schema consistency.",
+  "chains": {}
+}

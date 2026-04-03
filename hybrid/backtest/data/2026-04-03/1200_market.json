@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-04-03T12:00:00-04:00",
+  "market_status": "CLOSED_GOOD_FRIDAY",
+  "note": "Good Friday - NYSE closed. Data reflects April 2 close.",
+  "spy": {
+    "close": 655.83,
+    "change_pct": 0.09
+  },
+  "qqq": {
+    "close": 584.98,
+    "change_pct": 0.11
+  },
+  "iwm": {
+    "close": 251.29,
+    "change_pct": 0.69
+  },
+  "vix": {
+    "close": 24.54,
+    "regime": "HIGH",
+    "range_5d": [
+      22.8,
+      28.1
+    ]
+  },
+  "fear_greed": {
+    "score": 14,
+    "rating": "Extreme Fear"
+  },
+  "oil_wti": 111.54,
+  "macro": {
+    "nfp_march": "+60K (below consensus 100K)",
+    "nfp_feb_revised": "-133K (from -92K)",
+    "avg_workweek": 34.2,
+    "iran_war": "active, Strait of Hormuz constrained",
+    "opec_meeting": "2026-04-05",
+    "hormuz_deadline": "2026-04-06"
+  },
+  "gex_levels": {
+    "positive_gamma": [
+      660,
+      665
+    ],
+    "flip_zone": [
+      654,
+      660
+    ],
+    "negative_gamma": [
+      640,
+      645
+    ],
+    "capitulation": 630
+  },
+  "monday_scenarios": {
+    "bullish_40pct": "SPY 660-670, rate cut hopes + oil dip",
+    "chop_25pct": "SPY 650-658, mixed signals",
+    "bearish_25pct": "SPY 642-650, stagflation fears",
+    "crisis_15pct": "SPY 630-640, war escalation"
+  }
+}

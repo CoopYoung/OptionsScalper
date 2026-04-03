@@ -176,8 +176,10 @@ class AnthropicClient(LLMClient):
             max_tokens=512,
             temperature=0.3,
             system=(
-                "You are a quantitative 0DTE options trading analyst. "
-                "Analyze the market data provided and make a trading decision. "
+                "You are a selective 0DTE options trading analyst. "
+                "Your DEFAULT decision is NO_TRADE. Only output TRADE when "
+                "confidence is above the threshold AND direction is clear AND "
+                "risk/reward is favorable. Most cycles should be NO_TRADE. "
                 "Respond with ONLY a valid JSON object, no commentary."
             ),
             messages=[{"role": "user", "content": prompt}],
@@ -212,8 +214,10 @@ class OpenAICompatibleClient(LLMClient):
                     {
                         "role": "system",
                         "content": (
-                            "You are a quantitative 0DTE options trading analyst. "
-                            "Analyze the market data provided and make a trading decision. "
+                            "You are a selective 0DTE options trading analyst. "
+                            "Your DEFAULT decision is NO_TRADE. Only output TRADE when "
+                            "confidence is above the threshold AND direction is clear AND "
+                            "risk/reward is favorable. Most cycles should be NO_TRADE. "
                             "Respond with ONLY a valid JSON object, no commentary."
                         ),
                     },
