@@ -1,0 +1,49 @@
+{
+  "timestamp": "2026-04-03T14:10:00-04:00",
+  "market_status": "CLOSED",
+  "holiday": "Good Friday",
+  "note": "No live data available — market closed. Egress proxy also blocks API calls. Data from April 2 close + weekend catalyst analysis.",
+  "equities": {
+    "SPY": {"close": 655.83, "change_pct": 0.09, "source": "April 2 close"},
+    "QQQ": {"close": 584.98, "change_pct": 0.11, "source": "April 2 close"},
+    "IWM": {"close": 251.29, "change_pct": 0.69, "source": "April 2 close"}
+  },
+  "volatility": {
+    "vix": 24.54,
+    "regime": "HIGH",
+    "vix_5d_range": [22.5, 26.9],
+    "note": "VIX seems low for active war + $111 oil backdrop"
+  },
+  "sentiment": {
+    "fear_greed": 14,
+    "rating": "Extreme Fear",
+    "signal": "CONTRARIAN_BULLISH",
+    "note": "6 of 7 sub-indicators in extreme fear. Historically powerful 3-month forward bullish signal, but muted by active geopolitical catalyst."
+  },
+  "macro": {
+    "oil_wti": 111.54,
+    "oil_brent": 109.0,
+    "oil_driver": "Strait of Hormuz constraint, Iran war",
+    "nfp_march": 60000,
+    "nfp_feb_revised": -133000,
+    "avg_workweek": 34.2,
+    "assessment": "Labor market deteriorating. Weakest 3-month stretch since 2020. Stagflation narrative building with oil >$110."
+  },
+  "weekend_catalysts": {
+    "opec_meeting_apr5": {
+      "bull_case": "Emergency production increase → WTI $97-100 → equity tailwind",
+      "bear_case": "Maintain/cut production → WTI $115+ → stagflation"
+    },
+    "hormuz_protocol_apr6": {
+      "bull_case": "Oman protocol success → WTI $85-95 → massive risk-on, VIX 18-20",
+      "bear_case": "Protocol failure → WTI $120+ → VIX 30+, SPY gap to $625-635"
+    },
+    "nfp_reaction": "Market first reaction Monday — 'bad news = good news' (rate cuts) vs 'stagflation'"
+  },
+  "gex_levels": {
+    "positive_gamma_above": 660,
+    "flip_zone": [654, 660],
+    "negative_gamma_support": [640, 645],
+    "capitulation": 630
+  }
+}

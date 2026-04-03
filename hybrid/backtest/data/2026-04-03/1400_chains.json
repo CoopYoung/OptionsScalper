@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-04-03T14:10:00-04:00",
+  "market_status": "CLOSED",
+  "holiday": "Good Friday",
+  "note": "No live options chain data — market closed. No 0DTE contracts available on Good Friday. Next options session: Monday April 6, 2026.",
+  "chains": {},
+  "monday_setup": {
+    "note": "Monday April 6 will have 0DTE (Mon/Wed/Fri SPY expirations), SPY weekly expirations, and standard April monthly chain.",
+    "expected_iv_environment": "HIGH — VIX 24.54 base, potential for significant gap based on weekend catalysts",
+    "atm_strike_range": {
+      "SPY": {"low_scenario": 625, "base": 655, "high_scenario": 675},
+      "QQQ": {"low_scenario": 560, "base": 585, "high_scenario": 600},
+      "IWM": {"low_scenario": 235, "base": 251, "high_scenario": 260}
+    }
+  }
+}

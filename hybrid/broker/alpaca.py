@@ -378,10 +378,21 @@ def _parse_expiry(symbol: str) -> str:
 
 
 def _parse_type(symbol: str) -> str:
-    """Parse call/put from OCC symbol."""
-    for c in symbol:
-        if c == 'C':
-            return "call"
-        if c == 'P':
-            return "put"
+    """Parse call/put from OCC symbol like SPY260403C00655000.
+
+    The C/P designator comes after the 6-digit date (YYMMDD), which is
+    right after the underlying ticker. We find the date portion first,
+    then read the character immediately after it.
+    """
+    # Find where the date starts (first digit after the underlying letters)
+    for i in range(len(symbol)):
+        if symbol[i].isdigit():
+            # Date is 6 digits (YYMMDD), C/P is at i+6
+            cp_idx = i + 6
+            if cp_idx < len(symbol):
+                if symbol[cp_idx] == 'C':
+                    return "call"
+                if symbol[cp_idx] == 'P':
+                    return "put"
+            break
     return ""
