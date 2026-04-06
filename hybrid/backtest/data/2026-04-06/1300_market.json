@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-04-06T12:45:00-04:00",
+  "source": "web_search_aggregated",
+  "note": "Alpaca API blocked by egress proxy. Data sourced from web search results.",
+  "indices": {
+    "SPY": {
+      "price": 656.50,
+      "change_pct": 0.10,
+      "open": 646.42,
+      "high": 658.20,
+      "low": 645.11,
+      "prev_close": 655.83,
+      "note": "140-point SPX swing range; gamma flip zone $654-660"
+    },
+    "QQQ": {
+      "price": 580.40,
+      "change_pct": 0.42,
+      "prev_close": 578.00,
+      "note": "Nasdaq leading on AI/tech; SK AI companies driving EM rally"
+    },
+    "IWM": {
+      "price": 253.40,
+      "change_pct": 0.75,
+      "prev_close": 251.51,
+      "note": "Small caps outperforming; risk-on ceasefire trade"
+    }
+  },
+  "vix": {
+    "current": 24.0,
+    "open": 26.78,
+    "high": 27.89,
+    "low": 23.87,
+    "prev_close": 23.87,
+    "regime": "HIGH",
+    "note": "Classic fear-open-to-relief-fade pattern. VIX fading from overnight anxiety."
+  },
+  "oil": {
+    "wti": 111.63,
+    "wti_range_low": 108.95,
+    "wti_range_high": 115.37,
+    "brent_approx": 109.00,
+    "note": "Wild swings $108-115 range; ceasefire talks pushing lower from highs"
+  },
+  "fear_greed": {
+    "value": 19,
+    "label": "Extreme Fear",
+    "note": "Down from 44 one month ago. Extreme contrarian bullish signal building."
+  },
+  "macro": {
+    "iran_ceasefire": "45-day ceasefire under negotiation (Islamabad Accord). Trump deadline: Tuesday to open Strait of Hormuz.",
+    "nfp_reaction": "March NFP +60K vs 100K consensus. Feb revised to -133K. Weak labor → Fed cut hopes → equities supported.",
+    "fed_outlook": "Market pricing rate cuts sooner on weak jobs data.",
+    "sector_leaders": "Airlines (DAL) up on lower fuel prospect, tech leading, energy pulling back",
+    "sector_laggards": "Integrated oil majors (XOM) moderate pullback as conflict premium fades"
+  },
+  "options_levels": {
+    "spy_expected_move_strikes": ["+656C", "+656C/-664C", "+647P/-648P", "+656C/-664C/-664C/+672C"],
+    "gex_positive_gamma": "660-665",
+    "gex_flip_zone": "654-660",
+    "gex_negative_gamma": "645-650",
+    "gex_capitulation": "630",
+    "note": "SPY currently in gamma flip zone. Needs $660 break for bullish or $654 break for bearish confirmation."
+  }
+}

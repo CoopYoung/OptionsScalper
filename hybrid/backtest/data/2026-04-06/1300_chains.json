@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-04-06T12:45:00-04:00",
+  "source": "unavailable",
+  "note": "Options chain data unavailable — Alpaca API blocked by egress proxy. The bot on Orange Pi has full API access and logs chain data during its cron cycles.",
+  "spy_0dte_expiry": "2026-04-06",
+  "qqq_0dte_expiry": "2026-04-06",
+  "iwm_0dte_expiry": "2026-04-06",
+  "estimated_atm_strikes": {
+    "SPY": 656,
+    "QQQ": 580,
+    "IWM": 253
+  },
+  "iv_regime": "HIGH",
+  "vix_for_iv": 24.0,
+  "chain_data": "PLACEHOLDER — populate from Orange Pi bot logs or next API-accessible session"
+}
