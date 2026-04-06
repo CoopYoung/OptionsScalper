@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-04-06T15:00:00-04:00",
+  "snapshot_type": "end_of_day",
+  "source": "unavailable",
+  "note": "Options chain data unavailable — Alpaca API blocked by egress proxy. Bot on Orange Pi has chain data via live cron cycles. This snapshot is a placeholder for schema consistency.",
+  "chains": {
+    "SPY": {
+      "underlying_price": 657.00,
+      "expiry": "2026-04-06",
+      "contracts": [],
+      "note": "No chain data available from this monitor environment. 0DTE contracts expired at 4:00 PM ET."
+    },
+    "QQQ": {
+      "underlying_price": 582.00,
+      "expiry": "2026-04-06",
+      "contracts": [],
+      "note": "No chain data available from this monitor environment."
+    },
+    "IWM": {
+      "underlying_price": 251.42,
+      "expiry": "2026-04-06",
+      "contracts": [],
+      "note": "No chain data available from this monitor environment."
+    }
+  },
+  "schema": {
+    "contract_fields": ["symbol", "strike", "expiry", "type", "bid", "ask", "mid", "last", "volume", "open_interest", "iv", "delta", "gamma", "theta", "vega", "rho"],
+    "note": "When Alpaca API is accessible, chains populate with all strikes within 5% ATM."
+  }
+}
