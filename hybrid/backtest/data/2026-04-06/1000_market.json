@@ -1,0 +1,76 @@
+{
+  "timestamp": "2026-04-06T10:00:00-04:00",
+  "source": "web_search_aggregated",
+  "note": "Egress proxy blocks Alpaca/Finnhub APIs. Data sourced from web search of financial sites.",
+  "underlyings": {
+    "SPY": {
+      "price": 657.61,
+      "prev_close": 655.83,
+      "change_pct": 0.27,
+      "day_range": {"low": 645.11, "high": 658.20},
+      "open": 656.50,
+      "volume": null
+    },
+    "QQQ": {
+      "price": 578.00,
+      "prev_close": 573.97,
+      "change_pct": 0.70,
+      "day_range": {"low": 571.92, "high": 585.99},
+      "open": 573.97,
+      "volume": null
+    },
+    "IWM": {
+      "price": 251.51,
+      "prev_close": 251.29,
+      "change_pct": 0.09,
+      "day_range": {"low": 244.895, "high": 252.33},
+      "open": 249.50,
+      "volume": null
+    }
+  },
+  "vix": {
+    "level": 24.48,
+    "open": 26.78,
+    "high": 27.89,
+    "low": 23.87,
+    "prev_close": 24.54,
+    "change": -0.06,
+    "change_pct": -0.24,
+    "regime": "HIGH",
+    "note": "VIX opened at 26.78 (spike on overnight concerns) then faded to 24.48 on ceasefire hopes"
+  },
+  "fear_greed": {
+    "value": 15,
+    "classification": "Extreme Fear",
+    "note": "Down from 44 a month ago. 6 of 7 sub-indicators in extreme fear. Strong contrarian bullish signal building."
+  },
+  "oil": {
+    "wti": 110.45,
+    "brent": 108.76,
+    "change_pct": -1.0,
+    "note": "Oil falling on reports of 45-day ceasefire discussions between US and Iran"
+  },
+  "geopolitical": {
+    "headline": "US-Iran ceasefire under active discussion",
+    "detail": "45-day ceasefire being negotiated. Trump gives Iran until Tuesday to open Strait of Hormuz. Markets cautiously optimistic.",
+    "impact": "Risk-on if ceasefire materializes, risk-off if talks collapse"
+  },
+  "macro": {
+    "nfp_march": "+60K (below consensus 100K)",
+    "nfp_february_revised": "-133K (revised down from -92K)",
+    "average_workweek": "34.2 hours (down 0.1)",
+    "note": "First market session to react to weak Friday NFP. Stagflation concerns vs rate cut hopes."
+  },
+  "indices": {
+    "sp500": {"value": 6632.19, "change": -40.43, "change_pct": -0.61},
+    "nasdaq": {"value": 22105.36, "change": -206.62, "change_pct": -0.93},
+    "russell2000": {"value": 2480.05, "change": -8.94, "change_pct": -0.36}
+  },
+  "gex_estimated": {
+    "spy_gamma_flip_zone": [654, 660],
+    "spy_positive_gamma_above": 660,
+    "spy_negative_gamma_below": 645,
+    "spy_capitulation_level": 630,
+    "note": "Estimated from April 3 report. SPY currently near gamma flip zone. Dealers transitioning from negative to positive gamma."
+  }
+}

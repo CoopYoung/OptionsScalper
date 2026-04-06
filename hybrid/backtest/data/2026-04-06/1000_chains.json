@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-04-06T10:00:00-04:00",
+  "source": "unavailable",
+  "note": "Options chain data unavailable — egress proxy blocks Alpaca data API. Chain snapshots cannot be captured from this environment.",
+  "expiry": "2026-04-06",
+  "SPY": {
+    "spot": 657.61,
+    "atm_strike": 658,
+    "estimated_0dte_atm_iv": 0.28,
+    "estimated_expected_move": 4.50,
+    "chains": []
+  },
+  "QQQ": {
+    "spot": 578.00,
+    "atm_strike": 578,
+    "estimated_0dte_atm_iv": 0.32,
+    "estimated_expected_move": 5.00,
+    "chains": []
+  },
+  "IWM": {
+    "spot": 251.51,
+    "atm_strike": 252,
+    "estimated_0dte_atm_iv": 0.30,
+    "estimated_expected_move": 2.50,
+    "chains": []
+  }
+}
