@@ -1,0 +1,77 @@
+{
+  "timestamp": "2026-04-06T14:05:00-04:00",
+  "source": "web_search_aggregated",
+  "note": "Direct API calls blocked by egress proxy. Data from web search aggregation.",
+  "indices": {
+    "SPY": {
+      "price": 657.00,
+      "change_pct": 0.18,
+      "day_open": 646.42,
+      "day_high": 658.20,
+      "day_low": 645.11,
+      "prev_close": 655.83,
+      "intraday_range_pct": 2.0,
+      "pattern": "RECOVERY",
+      "narrative": "Opened $646.42 (gap down), dipped to $645.11, rallied to $658.20 on ceasefire hopes, now consolidating ~$657"
+    },
+    "QQQ": {
+      "price": 582.00,
+      "change_pct": 0.40,
+      "narrative": "Tech outperforming on AI/semiconductor spillover. Nasdaq +0.4%"
+    },
+    "IWM": {
+      "price": 252.00,
+      "change_pct": 0.30,
+      "narrative": "Small caps fading after early +0.75% pop. Ceasefire optimism cooling."
+    }
+  },
+  "volatility": {
+    "VIX": {
+      "level": 24.54,
+      "change_pct": -8.4,
+      "day_high": 27.89,
+      "day_low": 23.87,
+      "prev_close": 26.78,
+      "regime": "HIGH",
+      "note": "VIX contracting from morning panic highs. Settling into 24-25 range."
+    }
+  },
+  "sentiment": {
+    "fear_greed": {
+      "value": 19,
+      "label": "Extreme Fear",
+      "note": "Persistent extreme fear. Down from 44 a month ago. Contrarian bullish signal building."
+    }
+  },
+  "geopolitical": {
+    "iran_ceasefire": "Iran rejected 45-day Islamabad Accord ceasefire; demanding permanent end. Diplomatic channels remain open.",
+    "trump_deadline": "Tuesday Hormuz deadline: reopen by Tuesday or US targets power plants/bridges.",
+    "oil_wti": 111.63,
+    "oil_range": "$108.95-$116.17 intraday",
+    "ceasefire_probability_april30": "22.5% (Polymarket)",
+    "ceasefire_probability_june30": "51.5% (Polymarket)"
+  },
+  "sector_rotation": {
+    "leadership": "QQQ > IWM > SPY",
+    "risk_appetite": "Fading from morning risk-on to neutral",
+    "energy": "Pullback on lower oil (ceasefire discount)",
+    "tech": "AI/semiconductor strength",
+    "airlines": "Rallying on lower fuel cost expectations"
+  },
+  "gex_analysis": {
+    "gamma_flip_zone": "$654-$660",
+    "positive_gamma_above": "$660",
+    "negative_gamma_below": "$654",
+    "current_position": "Dead center in flip zone. No dealer bias.",
+    "key_support": "$645 (today's low), $650",
+    "key_resistance": "$660 (positive gamma), $665"
+  },
+  "time_regime": {
+    "regime": "AFTERNOON_SESSION",
+    "description": "Volume returning post-lunch. Power hour (2-3 PM) approaching.",
+    "theta_note": "Significant theta decay on 0DTE. Need strong conviction for entries."
+  },
+  "iv_regime": {
+    "note": "HIGH IV environment. VIX at 24.54, elevated from 18-20 a month ago. Options expensive. Long premium faces severe theta burn."
+  }
+}

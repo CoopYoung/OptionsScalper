@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-04-06T14:05:00-04:00",
+  "source": "unavailable",
+  "note": "Options chain data unavailable. Egress proxy blocks Alpaca data API (data.alpaca.markets). Bot running on Orange Pi has full API access for chain data.",
+  "spy_chain": [],
+  "qqq_chain": [],
+  "iwm_chain": [],
+  "estimated_atm_strikes": {
+    "SPY": {"atm": 657, "range": "624-690 (5% either side)"},
+    "QQQ": {"atm": 582, "range": "553-611 (5% either side)"},
+    "IWM": {"atm": 252, "range": "239-265 (5% either side)"}
+  },
+  "expiry": "2026-04-06"
+}
