@@ -1,0 +1,83 @@
+{
+  "timestamp": "2026-04-06T13:30:00-04:00",
+  "source": "web_search_aggregated",
+  "note": "Alpaca API blocked by egress proxy; data sourced from financial news sites",
+  "equities": {
+    "SPY": {
+      "price": 655.83,
+      "change_pct": 0.09,
+      "open": 646.42,
+      "high": 658.20,
+      "low": 645.11,
+      "prev_close": 655.83,
+      "intraday_range_pct": 2.0,
+      "note": "Wild 140-point S&P swing; opened weak on Iran anxiety, rallied on Islamabad Accord ceasefire news, settled back"
+    },
+    "QQQ": {
+      "price": 584.98,
+      "change_pct": 0.11,
+      "prev_close": 584.31,
+      "note": "Tech slightly outperforming; AI/semiconductor strength"
+    },
+    "IWM": {
+      "price": 251.42,
+      "change_pct": 0.05,
+      "prev_close": 251.29,
+      "high": 252.48,
+      "low": 250.26,
+      "note": "Small caps lagging after earlier outperformance; risk-on fading"
+    }
+  },
+  "volatility": {
+    "VIX": {
+      "level": 24.54,
+      "regime": "HIGH",
+      "open": 26.78,
+      "high": 27.89,
+      "low": 23.87,
+      "note": "VIX retreating from panic open; settling in 24-25 range. Significant cooling from mid-March >30 levels."
+    },
+    "vix_adaptive_exits": {
+      "profit_target_pct": 60.0,
+      "stop_loss_pct": 40.0,
+      "trailing_activate_pct": 35.0,
+      "trailing_stop_pct": 18.0
+    }
+  },
+  "oil": {
+    "WTI": {
+      "price": 109.0,
+      "high": 116.17,
+      "low": 108.95,
+      "range_pct": 5.7,
+      "note": "Wild $7+ intraday range. Spiked to $116 on Iran anxiety, pared to $109 on 45-day ceasefire talks (Islamabad Accord)"
+    }
+  },
+  "sentiment": {
+    "fear_greed_index": 19,
+    "fear_greed_label": "Extreme Fear",
+    "note": "Down from 44 a month ago. Historically strong contrarian bullish signal below 20, but catalyst not yet resolved."
+  },
+  "geopolitical": {
+    "iran_ceasefire": "45-day Islamabad Accord proposed; Iran rejected latest proposal, wants permanent end to war. Trump deadline: Tuesday for Hormuz reopening or US targets power plants/bridges.",
+    "ceasefire_probability_april30": "22.5%",
+    "ceasefire_probability_june30": "51.5%"
+  },
+  "gex_estimated": {
+    "SPY": {
+      "positive_gamma_above": 660,
+      "gamma_flip_zone": [654, 660],
+      "negative_gamma_below": 654,
+      "major_support": 645,
+      "capitulation_level": 630,
+      "current_position": "In gamma flip zone - two-way action expected"
+    }
+  },
+  "market_regime": "HIGH_VOLATILITY_RANGE_HEADLINE_DRIVEN",
+  "iv_regime": "ELEVATED",
+  "sector_rotation": {
+    "leadership": "QQQ > SPY > IWM (tech leading, small caps fading after AM outperformance)",
+    "energy": "Pulling back on ceasefire hopes",
+    "airlines": "Surging on lower fuel cost expectations"
+  }
+}
