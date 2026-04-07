@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-04-07T12:00:00-04:00",
+  "snapshot_type": "midday_check",
+  "source": "monitor_inferred",
+  "note": "Egress proxy still blocks paper-api.alpaca.markets, data.alpaca.markets, query1.finance.yahoo.com, finnhub.io, api.telegram.org (host_not_allowed). Schema preserved for replay; values are forward-only inferences pending real data restoration.",
+  "session": "Tuesday April 7 2026 — Hormuz Deadline Day, midday",
+  "equities": {
+    "SPY": {"prev_close": 657.00, "expected_intraday_range": [650.00, 663.00], "note": "No live tape. Hour 2-3 of session is typically lower vol than open absent fresh wires."},
+    "QQQ": {"prev_close": 582.00, "note": "No live tape."},
+    "IWM": {"prev_close": 251.42, "note": "No live tape."}
+  },
+  "volatility": {
+    "VIX": {"prev_close": 24.54, "regime": "HIGH", "expected_range": [22.0, 30.0], "note": "Loaded into .daily_state.json last_vix=24.54 — VIX-adaptive exits remain at HIGH regime tuning (60% TP / 40% SL / 35% trail-arm / 18% trail)."}
+  },
+  "sentiment": {"fear_greed_index_prev": 19, "regime": "Extreme Fear"},
+  "oil": {"WTI": {"prev_close": 111.63, "note": "Hormuz barometer."}},
+  "macro_calendar": {"today_events": ["Iran/Hormuz ultimatum expiry"], "blackout_active": "headline_risk_only"},
+  "data_quality": "POOR — egress block; schema preserved for replay only"
+}
