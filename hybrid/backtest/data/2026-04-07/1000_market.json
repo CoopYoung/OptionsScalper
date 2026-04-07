@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-04-07T10:00:00-04:00",
+  "snapshot_type": "morning_open_check",
+  "source": "monitor_inferred",
+  "note": "Alpaca/Finnhub/yfinance all blocked by egress proxy (host_not_allowed). Bot on Orange Pi has full network access. Values inferred from prior session close + overnight expectations.",
+  "session": "Tuesday April 7 2026 — Iran Hormuz Deadline Day (Trump's ultimatum expires today)",
+  "equities": {
+    "SPY": {
+      "prev_close": 657.00,
+      "expected_open_range": [653.00, 661.00],
+      "note": "Friday→Monday closed flat at $657. Tuesday open hinges entirely on overnight Iran/Hormuz news. No firm price available."
+    },
+    "QQQ": {
+      "prev_close": 582.00,
+      "note": "Tech leadership Monday. AI/semis still bid."
+    },
+    "IWM": {
+      "prev_close": 251.42,
+      "note": "Risk-on rotation faded Monday. Watching for re-engagement on de-escalation."
+    }
+  },
+  "volatility": {
+    "VIX": {
+      "prev_close": 24.54,
+      "regime": "HIGH",
+      "expected_range": [22.0, 30.0],
+      "note": "Binary day. Ceasefire/de-escalation = VIX collapses to 18-22. Escalation = VIX spike to 30+. Bot's VIX-adaptive exits and crisis gate (>35) handle both."
+    }
+  },
+  "sentiment": {
+    "fear_greed_index_prev": 19,
+    "regime": "Extreme Fear",
+    "note": "F&G < 20 for 4+ days. Contrarian bullish setup BUILDING but not yet triggered. Trigger = VIX < 20 AND F&G rising."
+  },
+  "oil": {
+    "WTI": {
+      "prev_close": 111.63,
+      "note": "Ceasefire barometer. <$108 = de-escalation priced in (equity bullish). >$115 = escalation (equity bearish)."
+    }
+  },
+  "geopolitical": {
+    "iran_hormuz_deadline": "TODAY (Tuesday April 7). Trump ultimatum: reopen Strait of Hormuz or US strikes power plants/bridges.",
+    "ceasefire_status_at_monday_close": "Iran rejected 45-day Islamabad Accord. Negotiations technically still open.",
+    "binary_event": true,
+    "asymmetry": "Headlines can swing SPY 1-2% in seconds. 0DTE long premium has poor risk/reward into a binary event."
+  },
+  "gex_levels": {
+    "spy_positive_gamma_breakout": 660,
+    "spy_negative_gamma_breakdown": 654,
+    "spy_capitulation": 630,
+    "spy_relief_target": 670,
+    "note": "Same flip zone as Monday. A clean break of 660 (de-escalation) or 654 (escalation) defines the day."
+  },
+  "iv_regime": {
+    "vix_level_prev": 24.54,
+    "regime": "HIGH",
+    "expected_iv_crush_on_ceasefire": "3-5 vol points if Hormuz reopens cleanly",
+    "expected_iv_expansion_on_escalation": "5-10 vol points if US strikes confirmed",
+    "note": "IV is extremely binary today. Long premium pays full theta + headline risk."
+  }
+}
